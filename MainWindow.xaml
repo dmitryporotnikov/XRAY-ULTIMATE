@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="XRAY_ULTIMATE.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:XRAY_ULTIMATE"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="XRAY ULTIMATE - System Diagnostics">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Custom TitleBar -->
+        <Grid x:Name="AppTitleBar" Height="48" Padding="16,0,140,0" ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Top">
+            <!-- App Brand & Title -->
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="6" Width="28" Height="28">
+                    <FontIcon Glyph="&#xE950;" FontSize="16" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="XRAY ULTIMATE" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" />
+                <TextBlock Text="•" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="Data &amp; Diagnostic Tool" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Global Quick Actions (Moved to the left to avoid clash with window caption buttons) -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="24,0,0,0">
+                <Button x:Name="BtnQuickRefresh" Click="BtnQuickRefresh_Click" ToolTipService.ToolTip="Refresh All Hardware &amp; System Data">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE72C;" FontSize="12" />
+                        <TextBlock Text="Refresh" FontSize="12" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnQuickExport" Click="BtnQuickExport_Click" Style="{ThemeResource AccentButtonStyle}" ToolTipService.ToolTip="Export Full Diagnostics Report">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE78C;" FontSize="12" />
+                        <TextBlock Text="Export Report" FontSize="12" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Main Shell: NavigationView -->
+        <NavigationView Grid.Row="1"
+                        x:Name="NavView"
+                        PaneDisplayMode="Left"
+                        IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="False"
+                        SelectionChanged="NavView_SelectionChanged"
+                        OpenPaneLength="240">
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="NavDashboard" Content="Dashboard" Tag="Dashboard">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItemHeader Content="HARDWARE" />
+
+                <NavigationViewItem x:Name="NavCpu" Content="Processor (CPU)" Tag="Cpu">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE950;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavMemory" Content="Memory (RAM)" Tag="Memory">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE964;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavMotherboard" Content="Motherboard &amp; BIOS" Tag="Motherboard">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xEB51;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavAcpi" Content="ACPI &amp; DSDT Tables" Tag="Acpi">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE943;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavDeviceManager" Content="Device Manager" Tag="DeviceManager">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9A9;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavGpu" Content="Display &amp; Graphics" Tag="Gpu">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE790;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavStorage" Content="Storage &amp; Disks" Tag="Storage">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xEDA2;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavNetwork" Content="Network &amp; Wi-Fi" Tag="Network">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE704;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavBattery" Content="Battery &amp; Power" Tag="Battery">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xEA93;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItemHeader Content="SYSTEM &amp; SECURITY" />
+
+                <NavigationViewItem x:Name="NavSecurity" Content="Security &amp; TPM" Tag="Security">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xEA18;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavDsregcmd" Content="Entra ID (dsregcmd)" Tag="Dsregcmd">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE753;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavFilters" Content="Filter Drivers (fltmc)" Tag="Filters">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE71C;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavSoftware" Content="Installed Software" Tag="Software">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE71D;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavProcesses" Content="Processes &amp; Services" Tag="Processes">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9D5;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItemHeader Content="DIAGNOSTICS &amp; BENCHMARK" />
+
+                <NavigationViewItem x:Name="NavSensors" Content="Live Sensors" Tag="Sensors">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9D2;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavBenchmark" Content="Hardware Benchmark" Tag="Benchmark">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9D9;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem x:Name="NavExport" Content="Export Report" Tag="Export">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE78C;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
+
+            <!-- Main Shell Frame, Top Loading Bar & Initial Splash Loading Overlay -->
+            <Grid>
+                <Frame x:Name="ContentFrame" Navigated="ContentFrame_Navigated" />
+                <ProgressBar x:Name="PrgNavLoading" IsIndeterminate="True" Height="2" VerticalAlignment="Top" Visibility="Collapsed" />
+
+                <!-- Initial Scanning Overlay -->
+                <Border x:Name="BrdInitialLoading" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Visibility="Visible">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                        <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="16" Width="80" Height="80" HorizontalAlignment="Center">
+                            <FontIcon Glyph="&#xE950;" FontSize="40" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="XRAY ULTIMATE" FontSize="26" FontWeight="Bold" HorizontalAlignment="Center" />
+                        <TextBlock Text="Probing Hardware &amp; System Telemetry..." FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                        <ProgressRing IsActive="True" Width="36" Height="36" Margin="0,8,0,0" />
+                        <TextBlock x:Name="TxtInitProgress" Text="Initializing WMI and Hardware Sensors..." FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </NavigationView>
+    </Grid>
+</Window>

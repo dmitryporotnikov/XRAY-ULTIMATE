@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="XRAY_ULTIMATE.Views.DsregcmdPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:XRAY_ULTIMATE.Models"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="28,20,28,40">
+        <StackPanel Spacing="24" HorizontalAlignment="Stretch">
+            <!-- Header Banner -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="24,20">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="12" Width="64" Height="64" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE753;" FontSize="32" Foreground="White" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock x:Name="TxtOverallStatus" Text="Entra ID / Azure AD Diagnostic State" FontSize="22" FontWeight="Bold" />
+                        <TextBlock Text="dsregcmd /status - Cloud &amp; Hybrid Directory Join Inspection" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <Button Click="BtnOpenSystemPropertiesDomain_Click" ToolTipService.ToolTip="Open Classic System Properties to manually join domain or workgroup (sysdm.cpl)">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE770;" FontSize="13" />
+                                <TextBlock Text="Domain Join (sysdm.cpl)" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="BtnRerun" Click="BtnRerun_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE72C;" FontSize="13" />
+                                <TextBlock Text="Re-run dsregcmd" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="BtnCopyRaw" Click="BtnCopyRaw_Click" Style="{ThemeResource AccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE8C8;" FontSize="13" />
+                                <TextBlock Text="Copy Raw Output" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- State Badges Row -->
+            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="14">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="AzureAdJoined" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontWeight="SemiBold" />
+                        <TextBlock x:Name="TxtAadJoined" Text="NO" FontSize="18" FontWeight="Bold" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="14">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="EnterpriseJoined" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontWeight="SemiBold" />
+                        <TextBlock x:Name="TxtEnterpriseJoined" Text="NO" FontSize="18" FontWeight="Bold" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="14">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="DomainJoined" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontWeight="SemiBold" />
+                        <TextBlock x:Name="TxtDomainJoined" Text="NO" FontSize="18" FontWeight="Bold" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="3"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="14">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="AzureAdPrt (SSO)" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontWeight="SemiBold" />
+                        <TextBlock x:Name="TxtPrtStatus" Text="NO" FontSize="18" FontWeight="Bold" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Key Identity Parameters -->
+            <TextBlock Text="Cloud Identity Details" FontSize="18" FontWeight="SemiBold" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="16" Margin="0,-8,0,0">
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Tenant Information" FontSize="14" FontWeight="SemiBold" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                        <TextBlock x:Name="TxtTenantName" Text="Tenant Name: -" FontSize="13" TextWrapping="Wrap" />
+                        <TextBlock x:Name="TxtTenantId" Text="Tenant ID: -" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="TxtIdp" Text="IDP: -" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Device Certificate &amp; TPM" FontSize="14" FontWeight="SemiBold" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                        <TextBlock x:Name="TxtDeviceId" Text="Device ID: -" FontSize="13" TextWrapping="Wrap" />
+                        <TextBlock x:Name="TxtTpmProtected" Text="TPM Protected: -" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="TxtKeyProvider" Text="Key Provider: -" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Parsed dsregcmd Fields -->
+            <TextBlock Text="Parsed dsregcmd Fields" FontSize="18" FontWeight="SemiBold" />
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    MaxHeight="300"
+                    Padding="4,8">
+                <ListView x:Name="LstParsedFields" SelectionMode="None">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="models:PropertyItem">
+                            <Grid ColumnDefinitions="160,200,*" Padding="12,6">
+                                <TextBlock Text="{x:Bind Category}" FontSize="11" FontWeight="SemiBold" Foreground="{ThemeResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind Property}" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="{x:Bind DisplayValue}" FontSize="12" IsTextSelectionEnabled="True" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Border>
+
+            <!-- Raw Terminal Output -->
+            <TextBlock Text="Raw Terminal Output (dsregcmd /status)" FontSize="18" FontWeight="SemiBold" />
+            <Border Background="#090d14"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="16">
+                <TextBox x:Name="TxtRawOutput"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="NoWrap"
+                         FontFamily="Consolas"
+                         FontSize="12"
+                         Foreground="#e2e8f0"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         MaxHeight="400"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="XRAY_ULTIMATE.Views.DeviceManagerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:XRAY_ULTIMATE.Models"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="28,20,28,40">
+        <StackPanel Spacing="24" HorizontalAlignment="Stretch">
+            <!-- Header Banner Card (matching CpuPage design) -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="24,20">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="12" Width="64" Height="64" Margin="0,0,20,0" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE9A9;" FontSize="32" Foreground="White" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="Hardware Device Manager" FontSize="22" FontWeight="Bold" />
+                        <TextBlock Text="Plug-and-Play Device Hierarchy, Driver Services &amp; Hardware IDs" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,4,0,0">
+                            <TextBlock x:Name="TxtTotalCount" Text="Total Devices: -" FontSize="13" FontWeight="SemiBold" />
+                            <Border x:Name="BrdIssuesBadge" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,2" VerticalAlignment="Center">
+                                <TextBlock x:Name="TxtIssuesText" Text="All devices healthy" FontSize="11" FontWeight="SemiBold" />
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Button Grid.Column="2" x:Name="BtnOpenDevMgmt" Click="BtnOpenDevMgmt_Click" Style="{ThemeResource AccentButtonStyle}" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8A7;" FontSize="13" />
+                            <TextBlock Text="Open devmgmt.msc" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Loading Indicator Card -->
+            <Border x:Name="BrdDmLoading"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="32,28"
+                    Visibility="Visible">
+                <StackPanel HorizontalAlignment="Center" Spacing="16">
+                    <ProgressRing IsActive="True" Width="36" Height="36" />
+                    <TextBlock Text="Loading Plug-and-Play Device Hierarchy..." FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="Organizing hardware devices into categories and classes" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <!-- Main Content Container -->
+            <StackPanel x:Name="PanelDmContent" Spacing="24" Visibility="Collapsed">
+                <!-- Search & Filter Card -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="16,12">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                    <TextBox x:Name="TxtSearch" PlaceholderText="Search devices by name, manufacturer, class, or hardware ID..." TextChanged="TxtSearch_TextChanged" VerticalAlignment="Center" />
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <RadioButton x:Name="RbGrouped" Content="Group by Class" IsChecked="True" Checked="ViewMode_Changed" FontWeight="SemiBold" />
+                        <RadioButton x:Name="RbFlat" Content="All Devices (Flat)" Checked="ViewMode_Changed" FontWeight="SemiBold" />
+                        <RadioButton x:Name="RbIssues" Content="Issues Only" Checked="ViewMode_Changed" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Main Content: Grouped View (Class Expanders) -->
+            <ItemsControl x:Name="LstGroups">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:DeviceClassGroup">
+                        <Expander IsExpanded="True" HorizontalAlignment="Stretch" Margin="0,0,0,12" HorizontalContentAlignment="Stretch">
+                            <Expander.Header>
+                                <Grid ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch" Padding="4,2">
+                                    <FontIcon Glyph="{x:Bind IconGlyph}" FontSize="18" Foreground="{ThemeResource AccentFillColorDefaultBrush}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind FriendlyName}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" />
+                                    <Border Grid.Column="2" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,2" Margin="0,0,8,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Bind DeviceCount}" FontSize="11" FontWeight="SemiBold" />
+                                    </Border>
+                                </Grid>
+                            </Expander.Header>
+
+                            <ItemsControl ItemsSource="{x:Bind Devices}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:DeviceItem">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" Padding="12,8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                                            <Ellipse Width="8" Height="8" Fill="{x:Bind StatusBrush}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                                <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{x:Bind DeviceId}" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="2">
+                                                <TextBlock Text="{x:Bind Manufacturer}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right" />
+                                                <TextBlock Text="{x:Bind StatusMessage}" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Right" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Expander>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Flat View (All Devices or Issues Only) -->
+            <Border x:Name="BrdFlatDevices"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="16,12"
+                    Visibility="Collapsed">
+                <ItemsControl x:Name="LstFlatDevices">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="models:DeviceItem">
+                            <Grid ColumnDefinitions="Auto,*,200,200" Padding="12,8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                                <Ellipse Width="8" Height="8" Fill="{x:Bind StatusBrush}" Margin="0,0,14,0" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                    <TextBlock Text="{x:Bind Name}" FontWeight="Bold" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{x:Bind DeviceId}" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Text="{x:Bind FriendlyClassName}" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                                    <TextBlock Text="{x:Bind Manufacturer}" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="3" Spacing="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <TextBlock Text="{x:Bind Status}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                                    <TextBlock Text="{x:Bind StatusMessage}" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+        </StackPanel>
+    </StackPanel>
+</ScrollViewer>
+</Page>

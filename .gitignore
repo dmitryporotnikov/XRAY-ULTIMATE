@@ -1,0 +1,59 @@
+## Visual Studio & IDE Caches
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.launch
+.vscode/
+.idea/
+*.DotSettings.user
+
+## Build Outputs & Binaries
+[Bb]in/
+[Oo]bj/
+[Dd]ist/
+[Aa]rtifacts/
+[Pp]ublish/
+Generated Files/
+out/
+build/
+
+## WinUI 3 & Windows App SDK Generated Files
+*.xbf
+*.g.cs
+*.g.i.cs
+*.pri
+AppPackages/
+BundleArtifacts/
+
+## Temporary & Locked Files
+*.old
+*.old.*
+*.tmp
+*.log
+*.binlog
+
+## MSBuild & NuGet
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.assets.json
+*.rsp
+
+## OS & Shell Metadata
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+## Generated Diagnostic Reports & Test Exports
+XRAY_Report_*
+report.json
+report.txt
+report.html
+host_dsdt.aml
+*.dsl
+*.aml
+!appicon.ico

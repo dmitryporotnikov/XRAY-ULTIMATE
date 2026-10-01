@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="XRAY_ULTIMATE.Views.BatteryPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:XRAY_ULTIMATE.Models"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="28,20,28,40">
+        <StackPanel Spacing="24" HorizontalAlignment="Stretch">
+            <!-- Battery Status Main Card -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="24,20">
+                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,*,Auto" RowSpacing="12">
+                    <Border Grid.Row="0" Grid.Column="0" Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="12" Width="64" Height="64" Margin="0,0,16,0" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xEA93;" FontSize="32" Foreground="White" />
+                    </Border>
+                    <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock x:Name="TxtBatteryHeader" Text="Battery State" FontSize="22" FontWeight="Bold" />
+                        <TextBlock x:Name="TxtPowerSource" Text="Power Source: -" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                        <TextBlock x:Name="TxtChargePercent" Text="100%" FontSize="32" FontWeight="Bold" Foreground="{ThemeResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" />
+                        <Button Click="BtnOpenPowerSettings_Click" ToolTipService.ToolTip="Open Windows Power Options (powercfg.cpl / Settings)" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE7E8;" FontSize="13" />
+                                <TextBlock Text="Power Options" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <ProgressBar Grid.Row="1" Grid.ColumnSpan="3" x:Name="PrgCharge" Value="100" Maximum="100" Height="10" CornerRadius="5" />
+
+                    <Grid Grid.Row="2" Grid.ColumnSpan="3" ColumnDefinitions="*,*">
+                        <TextBlock x:Name="TxtRemainingTime" Text="Remaining: Calculating..." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Grid.Column="1" x:Name="TxtChemistry" Text="Chemistry: Li-Ion" FontSize="12" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- Status Notification InfoBar -->
+            <InfoBar x:Name="IbPowerStatus" IsOpen="False" Severity="Informational" Margin="0,-8,0,0" />
+
+            <!-- Health & Capacity Cards -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                <!-- Health Card -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Battery Health &amp; Wear" FontSize="15" FontWeight="SemiBold" />
+                        <TextBlock x:Name="TxtHealthPercent" Text="Health: 100%" FontSize="18" FontWeight="Bold" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                        <ProgressBar x:Name="PrgHealth" Value="100" Maximum="100" Height="6" CornerRadius="3" Margin="0,4" />
+                        <Grid ColumnDefinitions="*,*">
+                            <TextBlock x:Name="TxtFullCap" Text="Full Charge: -" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" x:Name="TxtDesignCap" Text="Design: -" FontSize="12" HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Power Plan Switcher Card -->
+                <Border Grid.Column="1"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Active Windows Power Scheme" FontSize="15" FontWeight="SemiBold" />
+                                <TextBlock x:Name="TxtPlanName" Text="Balanced" FontSize="18" FontWeight="Bold" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            </StackPanel>
+                            <DropDownButton Grid.Column="1" Content="Add Plan..." VerticalAlignment="Top" ToolTipService.ToolTip="Restore standard Windows power schemes">
+                                <DropDownButton.Flyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem Text="Restore High Performance" Click="MenuRestoreHighPerf_Click" />
+                                        <MenuFlyoutItem Text="Restore Power Saver" Click="MenuRestorePowerSaver_Click" />
+                                        <MenuFlyoutItem Text="Restore Ultimate Performance" Click="MenuRestoreUltimate_Click" />
+                                    </MenuFlyout>
+                                </DropDownButton.Flyout>
+                            </DropDownButton>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Margin="0,4,0,0">
+                            <ComboBox x:Name="CmbPowerPlans" HorizontalAlignment="Stretch" VerticalAlignment="Center" PlaceholderText="Select Power Scheme..." />
+                            <Button Grid.Column="1" x:Name="BtnApplyPlan" Click="BtnApplyPlan_Click" Style="{ThemeResource AccentButtonStyle}" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE73E;" FontSize="12" />
+                                    <TextBlock Text="Apply Plan" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Detailed Properties Table -->
+            <TextBlock Text="Power &amp; Energy Diagnostics" FontSize="18" FontWeight="SemiBold" />
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="4,8">
+                <ListView x:Name="LstBatteryProperties" SelectionMode="None">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="models:PropertyItem">
+                            <Grid ColumnDefinitions="260,*" Padding="16,8">
+                                <TextBlock Text="{x:Bind Property}" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind DisplayValue}" FontSize="13" FontWeight="Medium" IsTextSelectionEnabled="True" VerticalAlignment="Center" TextWrapping="Wrap" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

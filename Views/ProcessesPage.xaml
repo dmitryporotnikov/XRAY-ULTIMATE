@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="XRAY_ULTIMATE.Views.ProcessesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:XRAY_ULTIMATE.Models"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="28,20,28,40">
+        <StackPanel Spacing="24" HorizontalAlignment="Stretch">
+            <!-- Header Banner Card (matching CpuPage design) -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="24,20">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="12" Width="64" Height="64" Margin="0,0,20,0" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE9D5;" FontSize="32" Foreground="White" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="Processes &amp; Windows Services" FontSize="22" FontWeight="Bold" />
+                        <TextBlock Text="Active Memory Working Sets, Thread Counts &amp; Service Control Subsystem" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,4,0,0">
+                            <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="4" Padding="8,2" VerticalAlignment="Center">
+                                <TextBlock x:Name="TxtItemsCount" Text="Items: 0" FontSize="11" FontWeight="Bold" Foreground="White" />
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button Click="BtnOpenTaskMgr_Click" ToolTipService.ToolTip="Launch Windows Task Manager (taskmgr.exe)">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE9D5;" FontSize="13" />
+                                <TextBlock Text="Task Manager" />
+                            </StackPanel>
+                        </Button>
+                        <Button Click="BtnOpenServicesMsc_Click" ToolTipService.ToolTip="Open Windows Services Console (services.msc)">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE713;" FontSize="13" />
+                                <TextBlock Text="services.msc" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="BtnRefresh" Click="BtnRefresh_Click" Style="{ThemeResource AccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE72C;" FontSize="13" />
+                                <TextBlock Text="Refresh" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Status Notification InfoBar -->
+            <InfoBar x:Name="IbStatus" IsOpen="False" Severity="Informational" Margin="0,-8,0,0" />
+
+            <!-- Loading Indicator Card -->
+            <Border x:Name="BrdProcessesLoading"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="32,28"
+                    Visibility="Visible">
+                <StackPanel HorizontalAlignment="Center" Spacing="16">
+                    <ProgressRing IsActive="True" Width="36" Height="36" />
+                    <TextBlock Text="Loading Active Processes &amp; Services..." FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="Inspecting memory working sets and Windows service control manager status" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <!-- Main Content Container -->
+            <StackPanel x:Name="PanelProcessesContent" Spacing="24" Visibility="Collapsed">
+                <!-- Search & Mode Filter Card -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="16,12">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="16">
+                        <TextBox x:Name="TxtSearch" PlaceholderText="Filter by process or service name, PID, or path..." TextChanged="TxtSearch_TextChanged" VerticalAlignment="Center" />
+
+                        <ComboBox x:Name="CmbProcessSort" Grid.Column="1" SelectedIndex="0" SelectionChanged="CmbProcessSort_SelectionChanged" Visibility="Visible" VerticalAlignment="Center">
+                            <ComboBoxItem Content="Sort: RAM (Highest First)" />
+                            <ComboBoxItem Content="Sort: RAM (Lowest First)" />
+                            <ComboBoxItem Content="Sort: Name (A to Z)" />
+                            <ComboBoxItem Content="Sort: Name (Z to A)" />
+                            <ComboBoxItem Content="Sort: PID (Lowest First)" />
+                            <ComboBoxItem Content="Sort: PID (Highest First)" />
+                        </ComboBox>
+
+                        <ComboBox x:Name="CmbServiceSort" Grid.Column="1" SelectedIndex="0" SelectionChanged="CmbServiceSort_SelectionChanged" Visibility="Collapsed" VerticalAlignment="Center">
+                            <ComboBoxItem Content="Sort: Running First" />
+                            <ComboBoxItem Content="Sort: Stopped First" />
+                            <ComboBoxItem Content="Sort: Automatic Startup" />
+                            <ComboBoxItem Content="Sort: Manual Startup" />
+                            <ComboBoxItem Content="Sort: Disabled First" />
+                            <ComboBoxItem Content="Sort: Name (A-Z)" />
+                        </ComboBox>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                            <RadioButton x:Name="RbProcesses" Content="Active Processes" IsChecked="True" Checked="FilterMode_Changed" FontWeight="SemiBold" />
+                            <RadioButton x:Name="RbServices" Content="Windows Services" Checked="FilterMode_Changed" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Main Content Area -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="16,8">
+                    <Grid>
+                        <!-- Processes List -->
+                        <ListView x:Name="LstProcesses" SelectionMode="None">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="models:ProcessItem">
+                                    <Grid ColumnDefinitions="*,110,120,90,Auto" Padding="12,8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind Name}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{x:Bind FilePath}" FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{x:Bind PidDisplay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="{x:Bind MemoryDisplay}" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="{x:Bind ThreadDisplay}" FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                        <Button Grid.Column="4"
+                                                Click="BtnTerminateProcess_Click"
+                                                Tag="{x:Bind}"
+                                                Margin="12,0,0,0"
+                                                Padding="8,4"
+                                                VerticalAlignment="Center"
+                                                ToolTipService.ToolTip="Terminate process tree">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon Glyph="&#xE711;" FontSize="11" Foreground="#ef4444" />
+                                                <TextBlock Text="Terminate" FontSize="11" Foreground="#ef4444" FontWeight="SemiBold" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+
+                        <!-- Services List -->
+                        <ListView x:Name="LstServices" SelectionMode="None" Visibility="Collapsed">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="models:WindowsServiceItem">
+                                    <Grid ColumnDefinitions="*,130,110,Auto" Padding="12,8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind DisplayName}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{x:Bind ServiceName}" FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <Border Grid.Column="1" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind StartType}" FontSize="11" FontWeight="SemiBold" />
+                                        </Border>
+                                        <Border Grid.Column="2" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Ellipse Width="6" Height="6" Fill="{x:Bind StatusBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Text="{x:Bind Status}" FontSize="11" FontWeight="SemiBold" />
+                                            </StackPanel>
+                                        </Border>
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Button Click="BtnStartService_Click" Tag="{x:Bind}" Visibility="{x:Bind CanStart}" Padding="8,4" ToolTipService.ToolTip="Start service">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <FontIcon Glyph="&#xE768;" FontSize="10" Foreground="#34d399" />
+                                                    <TextBlock Text="Start" FontSize="11" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Click="BtnStopService_Click" Tag="{x:Bind}" Visibility="{x:Bind CanStop}" Padding="8,4" ToolTipService.ToolTip="Stop service">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <FontIcon Glyph="&#xE71A;" FontSize="10" Foreground="#ef4444" />
+                                                    <TextBlock Text="Stop" FontSize="11" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Click="BtnRestartService_Click" Tag="{x:Bind}" Visibility="{x:Bind CanRestart}" Padding="8,4" ToolTipService.ToolTip="Restart service">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <FontIcon Glyph="&#xE72C;" FontSize="10" />
+                                                    <TextBlock Text="Restart" FontSize="11" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <DropDownButton Content="Startup" Padding="8,4" ToolTipService.ToolTip="Change Startup Type">
+                                                <DropDownButton.Flyout>
+                                                    <MenuFlyout>
+                                                        <MenuFlyoutItem Text="Automatic" Click="MenuStartupType_Click" Tag="{x:Bind}" />
+                                                        <MenuFlyoutItem Text="Manual" Click="MenuStartupType_Click" Tag="{x:Bind}" />
+                                                        <MenuFlyoutItem Text="Disabled" Click="MenuStartupType_Click" Tag="{x:Bind}" />
+                                                    </MenuFlyout>
+                                                </DropDownButton.Flyout>
+                                            </DropDownButton>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="XRAY_ULTIMATE.Views.DashboardPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:XRAY_ULTIMATE.Models"
+    mc:Ignorable="d">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="28,20,28,40">
+        <StackPanel Spacing="24" HorizontalAlignment="Stretch">
+            <!-- Header Banner -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="24,20">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="6" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock x:Name="TxtComputerName" Text="DESKTOP-SYSTEM" FontSize="26" FontWeight="SemiBold" />
+                            <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="6" Padding="8,2" VerticalAlignment="Center">
+                                <TextBlock Text="XRAY ULTIMATE" FontSize="11" FontWeight="Bold" Foreground="White" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock x:Name="TxtOsSub" Text="Windows 11 Pro 64-bit" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,4,0,0">
+                            <TextBlock x:Name="TxtUptime" Text="Uptime: 0d 0h 0m" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                            <TextBlock x:Name="TxtUser" Text="User: DOMAIN\User" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <Button x:Name="BtnRefresh" Click="BtnRefresh_Click" Style="{ThemeResource AccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                                <TextBlock Text="Refresh Specs" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Loading indicator -->
+            <ProgressBar x:Name="PrgLoading" IsIndeterminate="True" Visibility="Collapsed" />
+
+            <!-- Summary Cards Grid -->
+            <TextBlock Text="System Overview" FontSize="18" FontWeight="SemiBold" />
+
+            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*,*,*" Margin="0,-8,0,0" RowSpacing="16" ColumnSpacing="16">
+                <!-- Processor Card -->
+                <Border Grid.Row="0" Grid.Column="0"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE950;" FontSize="18" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            <TextBlock Text="Processor" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <TextBlock x:Name="TxtCpuModel" Text="Intel / AMD CPU" FontSize="14" FontWeight="Bold" TextWrapping="WrapWholeWords" MaxLines="2" />
+                        <TextBlock x:Name="TxtCpuCores" Text="Cores / Threads: -" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock x:Name="TxtCpuClocks" Text="Base Clock: -" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                            <TextBlock Text="•" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock x:Name="TxtCpuTempDash" Text="45 °C" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Memory Card -->
+                <Border Grid.Row="0" Grid.Column="1"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE964;" FontSize="18" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            <TextBlock Text="Installed RAM" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <TextBlock x:Name="TxtRamTotal" Text="0.0 GB" FontSize="18" FontWeight="Bold" />
+                        <ProgressBar x:Name="PrgRamUsage" Value="0" Maximum="100" Margin="0,2" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock x:Name="TxtRamUsed" Text="Used: 0 GB" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="TxtRamPercent" Grid.Column="1" Text="0%" FontSize="12" FontWeight="SemiBold" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Graphics Card -->
+                <Border Grid.Row="0" Grid.Column="2"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE790;" FontSize="18" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            <TextBlock Text="Graphics (GPU)" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <TextBlock x:Name="TxtGpuName" Text="GPU Adapter" FontSize="14" FontWeight="Bold" TextWrapping="WrapWholeWords" MaxLines="2" />
+                        <TextBlock x:Name="TxtGpuVram" Text="VRAM: -" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock x:Name="TxtGpuRes" Text="Resolution: -" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                            <TextBlock Text="•" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock x:Name="TxtGpuTempDash" Text="47 °C" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Storage Card -->
+                <Border Grid.Row="0" Grid.Column="3"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xEDA2;" FontSize="18" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            <TextBlock Text="Primary Storage" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <TextBlock x:Name="TxtStoragePrimary" Text="Drive C:" FontSize="14" FontWeight="Bold" />
+                        <ProgressBar x:Name="PrgStorageUsage" Value="0" Maximum="100" Margin="0,2" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock x:Name="TxtStorageFree" Text="Free: - GB" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="TxtStorageTotal" Grid.Column="1" Text="Total: - GB" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Network Card -->
+                <Border Grid.Row="1" Grid.Column="0"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE704;" FontSize="18" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            <TextBlock Text="Network / IP" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <TextBlock x:Name="TxtNetIp" Text="0.0.0.0" FontSize="16" FontWeight="Bold" />
+                        <TextBlock x:Name="TxtNetAdapter" Text="Adapter: -" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="TxtNetStatus" Text="Connected" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Cloud Identity Card -->
+                <Border Grid.Row="1" Grid.Column="1"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE753;" FontSize="18" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            <TextBlock Text="Entra ID / Join State" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <TextBlock x:Name="TxtJoinState" Text="Checking..." FontSize="14" FontWeight="Bold" TextWrapping="Wrap" />
+                        <TextBlock x:Name="TxtTenant" Text="Tenant: -" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="TxtPrt" Text="AzureAdPrt: -" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Security / TPM Card -->
+                <Border Grid.Row="1" Grid.Column="2"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xEA18;" FontSize="18" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            <TextBlock Text="Security &amp; TPM" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <TextBlock x:Name="TxtTpmStatus" Text="TPM 2.0" FontSize="14" FontWeight="Bold" />
+                        <TextBlock x:Name="TxtSecureBoot" Text="Secure Boot: Enabled" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="TxtAntivirus" Text="Defender: Active" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Battery / Power Card -->
+                <Border Grid.Row="1" Grid.Column="3"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xEA93;" FontSize="18" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            <TextBlock Text="Power &amp; Battery" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <TextBlock x:Name="TxtBatteryPercent" Text="AC Connected" FontSize="16" FontWeight="Bold" />
+                        <TextBlock x:Name="TxtBatteryHealth" Text="Health: 100%" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="TxtPowerPlan" Text="Plan: Balanced" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Detailed Properties Section Grouped by Category -->
+            <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,-8">
+                <TextBlock Text="System Properties" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Click="BtnOpenWindowsUpdate_Click" ToolTipService.ToolTip="Open Windows Update (ms-settings:windowsupdate)" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE895;" FontSize="13" />
+                        <TextBlock Text="Windows Update" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <ItemsControl x:Name="LstOverviewPropertyGroups">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:PropertyGroup">
+                        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="16,12"
+                                Margin="0,0,0,16">
+                            <StackPanel Spacing="10">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="4" Width="4" Height="16" />
+                                    <TextBlock Text="{x:Bind Category}" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                                </StackPanel>
+
+                                <ListView ItemsSource="{x:Bind Items}" SelectionMode="None">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="models:PropertyItem">
+                                            <Grid ColumnDefinitions="260,*" Padding="8,6" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                                                <TextBlock Text="{x:Bind Property}" FontWeight="SemiBold" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="1" Text="{x:Bind DisplayValue}" FontSize="13" FontWeight="Medium" IsTextSelectionEnabled="True" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
