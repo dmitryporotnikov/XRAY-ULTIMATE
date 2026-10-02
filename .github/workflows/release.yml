@@ -30,9 +30,19 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $buildNumber = "${{ github.run_number }}"
-          $version = "1.0.$buildNumber"
-          Write-Host "Auto-incremented version: $version"
+          git fetch --tags --force
+          $tags = git tag -l "v*"
+          $maxVersion = 0
+          foreach ($tag in $tags) {
+              if ($tag -match '^v?(\d+)\.(\d+)\.(\d+)$') {
+                  $v = [int]$Matches[3]
+                  if ($v -gt $maxVersion) { $maxVersion = $v }
+              }
+          }
+          $runOffset = [int]"${{ github.run_number }}" + 2
+          $nextNum = [Math]::Max($maxVersion + 1, $runOffset)
+          $version = "1.0.$nextNum"
+          Write-Host "Auto-incremented version: $version (highest tag: $maxVersion, run number: ${{ github.run_number }})"
           "APP_VERSION=$version" >> $env:GITHUB_ENV
           "TAG_NAME=v$version" >> $env:GITHUB_ENV
 
@@ -104,6 +114,7 @@ jobs:
         with:
           tag_name: ${{ env.TAG_NAME }}
           name: XRAY ULTIMATE v${{ env.APP_VERSION }}
+          make_latest: true
           body: |
             ## XRAY ULTIMATE v${{ env.APP_VERSION }}
             
