@@ -42,6 +42,12 @@ project.lock.json
 project.assets.json
 *.rsp
 
+## WiX Toolset
+.wix/
+*.wixobj
+*.wixpdb
+
+
 ## OS & Shell Metadata
 Thumbs.db
 ehthumbs.db

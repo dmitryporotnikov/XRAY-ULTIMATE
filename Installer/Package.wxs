@@ -1,0 +1,57 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="XRAY ULTIMATE"
+           Manufacturer="XRAY ULTIMATE"
+           Version="$(var.Version)"
+           UpgradeCode="4E780E2B-927A-4FD7-9481-B2DE1BE7C7E2"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <UI>
+      <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" Order="2" Condition="NOT Installed" />
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2" />
+    </UI>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="XRAY ULTIMATE" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="ApplicationShortcut" Guid="B49FA71C-0E66-410E-921A-14909EE53DE6">
+        <Shortcut Id="ApplicationStartMenuShortcut"
+                  Name="XRAY ULTIMATE"
+                  Description="Hardware Diagnostics &amp; Telemetry Workstation"
+                  Target="[INSTALLFOLDER]XRAY ULTIMATE.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU" Key="Software\XRAY ULTIMATE" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="ApplicationDesktopShortcut" Guid="80DA1BF5-97F1-4DC3-8555-52B07CAEDFE4">
+        <Shortcut Id="ApplicationDesktopShortcut"
+                  Name="XRAY ULTIMATE"
+                  Description="Hardware Diagnostics &amp; Telemetry Workstation"
+                  Target="[INSTALLFOLDER]XRAY ULTIMATE.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU" Key="Software\XRAY ULTIMATE" Name="desktop_shortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Icon Id="AppIcon" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/dmitryporotnikov/XRAY-ULTIMATE" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/dmitryporotnikov/XRAY-ULTIMATE" />
+
+    <Feature Id="Main" Title="XRAY ULTIMATE" Level="1">
+      <Files Directory="INSTALLFOLDER" Include="$(var.PublishDir)\**" />
+      <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="ApplicationDesktopShortcut" />
+    </Feature>
+  </Package>
+</Wix>

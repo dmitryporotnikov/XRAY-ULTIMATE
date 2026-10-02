@@ -1,0 +1,131 @@
+name: Build & Release
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Package (Portable & MSI)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Calculate Auto-Incremented Version
+        id: version
+        shell: pwsh
+        run: |
+          $buildNumber = "${{ github.run_number }}"
+          $version = "1.0.$buildNumber"
+          Write-Host "Auto-incremented version: $version"
+          "APP_VERSION=$version" >> $env:GITHUB_ENV
+          "TAG_NAME=v$version" >> $env:GITHUB_ENV
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          $toolsDir = "$env:USERPROFILE\.dotnet\tools"
+          if ($env:PATH -notlike "*$toolsDir*") {
+              $toolsDir >> $env:GITHUB_PATH
+              $env:PATH = "$toolsDir;$env:PATH"
+          }
+          wix extension add --global WixToolset.UI.wixext/5.0.2
+
+      - name: Restore NuGet Packages
+        run: dotnet restore -p:Platform=x64
+
+      - name: Publish Framework-Dependent Binary
+        shell: pwsh
+        run: |
+          dotnet publish -c Release -r win-x64 --self-contained false `
+            -p:Platform=x64 `
+            -p:SelfContained=false `
+            -p:PublishTrimmed=false `
+            -p:PublishSingleFile=false `
+            -p:WindowsAppSDKSelfContained=true `
+            -p:Version=${{ env.APP_VERSION }} `
+            -p:AssemblyVersion=${{ env.APP_VERSION }}.0 `
+            -p:FileVersion=${{ env.APP_VERSION }}.0 `
+            -p:InformationalVersion=${{ env.APP_VERSION }} `
+            -o ./dist/publish
+
+      - name: Package Portable Distribution Archive (ZIP)
+        shell: pwsh
+        run: |
+          $zipPath = "./dist/XRAY_ULTIMATE_v${{ env.APP_VERSION }}_Portable_x64.zip"
+          Compress-Archive -Path ./dist/publish/* -DestinationPath $zipPath -Force
+          Write-Host "Packaged portable archive at $zipPath"
+          "PORTABLE_ZIP_PATH=$zipPath" >> $env:GITHUB_ENV
+
+      - name: Build MSI Installer
+        shell: pwsh
+        run: |
+          $publishDir = (Convert-Path "./dist/publish")
+          $iconPath = (Convert-Path "./appicon.ico")
+          $msiPath = "./dist/XRAY_ULTIMATE_v${{ env.APP_VERSION }}_Setup_x64.msi"
+          wix build ./Installer/Package.wxs `
+            -d Version="${{ env.APP_VERSION }}" `
+            -d PublishDir="$publishDir" `
+            -d IconPath="$iconPath" `
+            -ext WixToolset.UI.wixext `
+            -arch x64 `
+            -out $msiPath
+          Write-Host "Built MSI installer at $msiPath"
+          "MSI_PATH=$msiPath" >> $env:GITHUB_ENV
+
+      - name: Upload Build Artifacts (PR & CI)
+        uses: actions/upload-artifact@v4
+        with:
+          name: XRAY_ULTIMATE_v${{ env.APP_VERSION }}_x64
+          path: |
+            ${{ env.PORTABLE_ZIP_PATH }}
+            ${{ env.MSI_PATH }}
+          retention-days: 14
+
+      - name: Publish to GitHub Releases
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: XRAY ULTIMATE v${{ env.APP_VERSION }}
+          body: |
+            ## XRAY ULTIMATE v${{ env.APP_VERSION }}
+            
+            ### Distribution Packages:
+            - **MSI Installer** (`XRAY_ULTIMATE_v${{ env.APP_VERSION }}_Setup_x64.msi`): Standard Windows Installer package with Start Menu and Desktop shortcuts.
+            - **Portable ZIP** (`XRAY_ULTIMATE_v${{ env.APP_VERSION }}_Portable_x64.zip`): Standalone unpack-and-run archive.
+            
+            ### Runtime Requirements:
+            - **Operating System**: Windows 10 (version 1809+) or Windows 11 (x64)
+            - **Runtime**: **.NET 10 Desktop Runtime (x64)** must be installed on the target machine
+            - **Elevation**: Runs elevated with administrative privileges (`requireAdministrator`)
+            
+            ### Included in this build:
+            - Full silicon-level hardware diagnostics across 18 specialized views.
+            - Real-time CPU, RAM, GPU (nvidia-smi), disk, and network sensor telemetry.
+            - Kernel ACPI & DSDT table disassembler with Intel `iasl` syntax compatibility.
+            - Integrated Windows service management and process tree termination.
+            - Audit reporting in Interactive HTML, JSON, and ASCII plain text.
+          files: |
+            ${{ env.PORTABLE_ZIP_PATH }}
+            ${{ env.MSI_PATH }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
