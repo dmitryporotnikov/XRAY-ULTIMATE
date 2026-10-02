@@ -22,12 +22,12 @@ Engineered with **WinUI 3** and **.NET 10 LTS**, XRAY ULTIMATE provides deep sil
 ### ACPI & DSDT Firmware Explorer
 *Direct physical memory AML bytecode extraction and real-time decompilation into clean, compilable ACPI Source Language (ASL / DSL).*
 
-![ACPI & DSDT Firmware Explorer](Documentation/Screens/screen2.jpg)
+![ACPI & DSDT Firmware Explorer](Documentation/screens/screen2.jpg)
 
 ### Driver & System Filter Subsystem
 *Inspection of registered filesystem minifilters (`fltmc`) and NDIS lightweight filter drivers with altitude mappings and instance frames.*
 
-![Driver & System Filter Subsystem](Documentation/Screens/screen3.jpg)
+![Driver & System Filter Subsystem](Documentation/screens/screen3.jpg)
 
 ---
 
