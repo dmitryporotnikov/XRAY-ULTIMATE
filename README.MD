@@ -1,4 +1,4 @@
-# XRAY ULTIMATE — Hardware Diagnostics & Telemetry Workstation
+# XRAY ULTIMATE - Diagnostics & Telemetry
 
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64)-0078D6?logo=windows)](https://microsoft.com/windows)
 [![Runtime](https://img.shields.io/badge/.NET-10.0%20LTS-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
@@ -17,7 +17,7 @@ Engineered with **WinUI 3** and **.NET 10 LTS**, XRAY ULTIMATE provides deep sil
 ### System Overview & Hardware Dashboard
 *Live hardware telemetry overview showing real-time CPU, memory, GPU, primary storage, network identity, TPM security, and system properties.*
 
-![System Overview & Hardware Dashboard](Documentation/Screens/screen1.jpg)
+![System Overview & Hardware Dashboard](Documentation/screens/screen1.jpg)
 
 ### ACPI & DSDT Firmware Explorer
 *Direct physical memory AML bytecode extraction and real-time decompilation into clean, compilable ACPI Source Language (ASL / DSL).*
