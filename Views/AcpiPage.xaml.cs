@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Windows.Storage.Pickers;
 using XRAY_ULTIMATE.Helpers;
 using XRAY_ULTIMATE.Models;
 using XRAY_ULTIMATE.Services;
@@ -77,7 +76,15 @@ public sealed partial class AcpiPage : Page
         string asl = _acpi.Dsdt.AslSourceCode;
         if (string.IsNullOrEmpty(asl)) return;
 
-        int lines = await System.Threading.Tasks.Task.Run(() => asl.Split('\n').Length);
+        int lines = await System.Threading.Tasks.Task.Run(() =>
+        {
+            int count = 1;
+            foreach (char c in asl)
+            {
+                if (c == '\n') count++;
+            }
+            return count;
+        });
         if (TxtAslStats != null)
             TxtAslStats.Text = $"Lines: {lines:N0} ({asl.Length / 1024.0:F1} KB)";
 

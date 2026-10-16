@@ -26,18 +26,16 @@ public static class ProcessServiceCollector
                         Id = p.Id,
                         Name = p.ProcessName,
                         MemoryWorkingSetMB = p.WorkingSet64 / (1024.0 * 1024.0),
-                        ThreadCount = p.Threads.Count
+                        ThreadCount = p.Threads.Count,
+                        FilePath = NativeMethods.TryGetProcessImagePath(p.Id)
                     };
 
                     try
                     {
-                        item.StartTime = p.StartTime;
-                    }
-                    catch { }
-
-                    try
-                    {
-                        item.FilePath = p.MainModule?.FileName ?? "";
+                        if (p.Id > 4)
+                        {
+                            item.StartTime = p.StartTime;
+                        }
                     }
                     catch { }
 

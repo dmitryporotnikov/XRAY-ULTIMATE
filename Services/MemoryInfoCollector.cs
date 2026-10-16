@@ -30,7 +30,7 @@ public static class MemoryInfoCollector
         // Enumerate physical memory modules (DIMM / SODIMM)
         try
         {
-            var modules = WmiService.Query("SELECT * FROM Win32_PhysicalMemory");
+            var modules = WmiService.Query("SELECT BankLabel, DeviceLocator, Capacity, Speed, ConfiguredClockSpeed, Manufacturer, PartNumber, SerialNumber, DataWidth, SMBIOSMemoryType, FormFactor FROM Win32_PhysicalMemory");
             foreach (var m in modules)
             {
                 var stick = new PhysicalMemoryStick

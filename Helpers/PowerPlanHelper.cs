@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using XRAY_ULTIMATE.Services;
 
 namespace XRAY_ULTIMATE.Helpers;
 
@@ -21,25 +23,16 @@ public static class PowerPlanHelper
     public static readonly (string Name, string Guid) StandardBalanced = ("Balanced", "381b4222-f694-41f0-9685-ff5bb260df2e");
     public static readonly (string Name, string Guid) StandardUltimate = ("Ultimate Performance", "e9a42b02-d5df-448d-aa00-03f14749eb61");
 
+    public static Task<List<PowerPlanItem>> GetPowerPlansAsync() => Task.Run(GetPowerPlans);
+
     public static List<PowerPlanItem> GetPowerPlans()
     {
         var list = new List<PowerPlanItem>();
         try
         {
-            var psi = new ProcessStartInfo
+            string output = NativeMethods.RunProcessCaptureOutput("powercfg.exe", "/list", timeoutMs: 3000);
+            if (!string.IsNullOrEmpty(output))
             {
-                FileName = "powercfg.exe",
-                Arguments = "/list",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            using var p = Process.Start(psi);
-            if (p != null)
-            {
-                string output = p.StandardOutput.ReadToEnd();
-                p.WaitForExit();
-
                 var matches = Regex.Matches(output, @"GUID:\s*([0-9a-fA-F\-]+)\s*\(([^)]+)\)(\s*\*)?");
                 foreach (Match m in matches)
                 {
@@ -60,6 +53,8 @@ public static class PowerPlanHelper
         return list;
     }
 
+    public static Task<bool> SetActivePlanAsync(string guid) => Task.Run(() => SetActivePlan(guid));
+
     public static bool SetActivePlan(string guid)
     {
         try
@@ -74,7 +69,11 @@ public static class PowerPlanHelper
             using var p = Process.Start(psi);
             if (p != null)
             {
-                p.WaitForExit();
+                if (!p.WaitForExit(3000))
+                {
+                    try { p.Kill(entireProcessTree: true); } catch { }
+                    return false;
+                }
                 return p.ExitCode == 0;
             }
         }
@@ -87,19 +86,9 @@ public static class PowerPlanHelper
         newGuid = "";
         try
         {
-            var psi = new ProcessStartInfo
+            string output = NativeMethods.RunProcessCaptureOutput("powercfg.exe", $"/duplicatescheme {baseGuid}", timeoutMs: 3000);
+            if (!string.IsNullOrEmpty(output))
             {
-                FileName = "powercfg.exe",
-                Arguments = $"/duplicatescheme {baseGuid}",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            using var p = Process.Start(psi);
-            if (p != null)
-            {
-                string output = p.StandardOutput.ReadToEnd();
-                p.WaitForExit();
                 var m = Regex.Match(output, @"GUID:\s*([0-9a-fA-F\-]+)");
                 if (m.Success)
                 {

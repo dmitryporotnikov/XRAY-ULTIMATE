@@ -35,6 +35,13 @@ namespace XRAY_ULTIMATE
         public App()
         {
             InitializeComponent();
+            this.UnhandledException += App_UnhandledException;
+        }
+
+        private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+        {
+            // Prevent non-fatal UI / background exceptions from abruptly terminating the diagnostic session
+            e.Handled = true;
         }
 
         /// <summary>

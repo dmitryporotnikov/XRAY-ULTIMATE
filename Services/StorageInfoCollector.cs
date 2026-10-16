@@ -15,7 +15,7 @@ public static class StorageInfoCollector
         // Query physical disk drives
         try
         {
-            var disks = WmiService.Query("SELECT * FROM Win32_DiskDrive");
+            var disks = WmiService.Query("SELECT Model, InterfaceType, Size, SerialNumber, DeviceID, Partitions, Status, FirmwareRevision FROM Win32_DiskDrive");
             foreach (var d in disks)
             {
                 var disk = new PhysicalDiskInfo

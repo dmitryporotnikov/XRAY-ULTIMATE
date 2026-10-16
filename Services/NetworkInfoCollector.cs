@@ -142,21 +142,7 @@ public static class NetworkInfoCollector
     {
         try
         {
-            var psi = new ProcessStartInfo
-            {
-                FileName = "netsh.exe",
-                Arguments = "wlan show interfaces",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var proc = Process.Start(psi);
-            if (proc == null) return null;
-
-            string output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(3000);
-
+            string output = NativeMethods.RunProcessCaptureOutput("netsh.exe", "wlan show interfaces", timeoutMs: 3000);
             if (string.IsNullOrWhiteSpace(output) || !output.Contains("SSID")) return null;
 
             var wifi = new WifiDetailsInfo();

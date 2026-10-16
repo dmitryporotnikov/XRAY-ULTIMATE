@@ -23,10 +23,15 @@ public static class AcpiService
     {
         var report = new AcpiReport();
 
-        // 1. Enumerate all ACPI tables
+        // 1. Enumerate all ACPI tables (skipping duplicate 4-char signature reads and handling DSDT once)
+        uint dsdtId = (uint)('D' | ('S' << 8) | ('D' << 16) | ('T' << 24));
+        var seenTableIds = new HashSet<uint>();
         var tableIds = EnumerateAcpiTableSignatures();
         foreach (var id in tableIds)
         {
+            if (id == dsdtId || !seenTableIds.Add(id))
+                continue;
+
             var tableItem = ReadAcpiTable(id);
             if (tableItem != null)
             {
@@ -34,7 +39,7 @@ public static class AcpiService
             }
         }
 
-        // 2. Fetch and parse DSDT (Differentiated System Description Table)
+        // 2. Fetch and parse DSDT (Differentiated System Description Table) once
         var dsdt = ReadDsdt();
         if (dsdt != null)
         {
@@ -146,7 +151,7 @@ public static class AcpiService
                 var dsdt = new DsdtReport
                 {
                     RawAmlData = bytes,
-                    Header = ParseAcpiHeader(bytes)
+                    Header = ParseAcpiHeader(bytes, disassemble: false)
                 };
 
                 // Parse AML Objects and Strings
@@ -155,8 +160,12 @@ public static class AcpiService
                 // Generate Hex Dump preview
                 dsdt.HexDumpPreview = GenerateHexDump(bytes, Math.Min(bytes.Length, 1536));
 
-                // Decompile AML bytecode to ASL/DSL source code
+                // Decompile AML bytecode to ASL/DSL source code once
                 dsdt.AslSourceCode = AcpiDisassembler.DisassembleToDsl(bytes, "DSDT");
+                if (dsdt.Header != null)
+                {
+                    dsdt.Header.AslDisassembly = dsdt.AslSourceCode;
+                }
 
                 return dsdt;
             }
@@ -171,7 +180,7 @@ public static class AcpiService
         }
     }
 
-    private static AcpiTableItem? ParseAcpiHeader(byte[] bytes)
+    private static AcpiTableItem? ParseAcpiHeader(byte[] bytes, bool disassemble = true)
     {
         if (bytes == null || bytes.Length < 36) return null;
 
@@ -190,7 +199,10 @@ public static class AcpiService
         };
 
         item.TableDescription = GetTableDescription(item.TableSignature);
-        item.AslDisassembly = AcpiDisassembler.DisassembleToDsl(bytes, item.TableSignature);
+        if (disassemble)
+        {
+            item.AslDisassembly = AcpiDisassembler.DisassembleToDsl(bytes, item.TableSignature);
+        }
         return item;
     }
 

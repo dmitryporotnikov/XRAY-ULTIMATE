@@ -6,7 +6,6 @@ using System.Linq;
 using System.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Windows.Storage.Pickers;
 using XRAY_ULTIMATE.Helpers;
 using XRAY_ULTIMATE.Models;
 using XRAY_ULTIMATE.Services;
@@ -85,16 +84,16 @@ public sealed partial class SoftwarePage : Page
     {
         try
         {
-            var savePicker = new FileSavePicker
-            {
-                SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-                SuggestedFileName = $"InstalledSoftware_{Environment.MachineName}_{DateTime.Now:yyyyMMdd}"
-            };
-            savePicker.FileTypeChoices.Add("CSV Comma-Separated Values", new List<string> { ".csv" });
-            WindowHelper.InitializePicker(savePicker);
+            string defaultName = $"InstalledSoftware_{Environment.MachineName}_{DateTime.Now:yyyyMMdd}.csv";
+            string? filePath = NativeFileDialog.SaveFile(
+                "Export Installed Software to CSV",
+                defaultName,
+                ".csv",
+                ("CSV Comma-Separated Values (*.csv)", "*.csv"),
+                ("All Files (*.*)", "*.*")
+            );
 
-            var file = await savePicker.PickSaveFileAsync();
-            if (file != null)
+            if (!string.IsNullOrEmpty(filePath))
             {
                 var sb = new StringBuilder();
                 sb.AppendLine("DisplayName,DisplayVersion,Publisher,InstallDate,Architecture,InstallLocation");
@@ -109,7 +108,7 @@ public sealed partial class SoftwarePage : Page
                     sb.AppendLine($"{name},{ver},{pub},{date},{arch},{loc}");
                 }
 
-                await File.WriteAllTextAsync(file.Path, sb.ToString(), Encoding.UTF8);
+                await File.WriteAllTextAsync(filePath, sb.ToString(), Encoding.UTF8);
             }
         }
         catch { }

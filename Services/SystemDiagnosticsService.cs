@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using XRAY_ULTIMATE.Helpers;
 using XRAY_ULTIMATE.Models;
@@ -11,62 +12,80 @@ public class SystemDiagnosticsService
     private static SystemDiagnosticsService? _instance;
     public static SystemDiagnosticsService Instance => _instance ??= new SystemDiagnosticsService();
 
+    private readonly SemaphoreSlim _refreshLock = new(1, 1);
+
     public SystemReport CurrentReport { get; private set; } = new();
 
     public async Task<SystemReport> RefreshAllAsync(IProgress<string>? progress = null)
     {
-        var report = new SystemReport();
+        await _refreshLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var previousBenchmark = CurrentReport?.Benchmark;
+            var report = new SystemReport
+            {
+                Benchmark = previousBenchmark
+            };
 
-        progress?.Report("Scanning Processor (CPU)...");
-        report.Cpu = await Task.Run(() => CpuInfoCollector.Collect());
+            T RunStep<T>(string statusMessage, Func<T> collector)
+            {
+                progress?.Report(statusMessage);
+                return collector();
+            }
 
-        progress?.Report("Scanning Physical & Virtual Memory (RAM)...");
-        report.Memory = await Task.Run(() => MemoryInfoCollector.Collect());
+            // Wave 1: Core hardware & firmware collectors in parallel
+            progress?.Report("Scanning CPU, Memory, Motherboard, GPU & Storage...");
+            var cpuTask = Task.Run(() => RunStep("Scanning Processor (CPU)...", CpuInfoCollector.Collect));
+            var memTask = Task.Run(() => RunStep("Scanning Physical & Virtual Memory (RAM)...", MemoryInfoCollector.Collect));
+            var mbTask = Task.Run(() => RunStep("Scanning Motherboard & BIOS/UEFI Firmware...", MotherboardInfoCollector.Collect));
+            var gpuTask = Task.Run(() => RunStep("Scanning GPU & Connected Displays...", GpuInfoCollector.Collect));
+            var storageTask = Task.Run(() => RunStep("Scanning Physical Disks & Volumes...", StorageInfoCollector.Collect));
+            var batteryTask = Task.Run(() => RunStep("Scanning Battery & Power Subsystem...", BatteryInfoCollector.Collect));
 
-        progress?.Report("Scanning Motherboard & BIOS/UEFI Firmware...");
-        report.Motherboard = await Task.Run(() => MotherboardInfoCollector.Collect());
+            await Task.WhenAll(cpuTask, memTask, mbTask, gpuTask, storageTask, batteryTask).ConfigureAwait(false);
 
-        progress?.Report("Scanning GPU & Connected Displays...");
-        report.Gpu = await Task.Run(() => GpuInfoCollector.Collect());
+            report.Cpu = cpuTask.Result;
+            report.Memory = memTask.Result;
+            report.Motherboard = mbTask.Result;
+            report.Gpu = gpuTask.Result;
+            report.Storage = storageTask.Result;
+            report.Battery = batteryTask.Result;
 
-        progress?.Report("Scanning Physical Disks & Volumes...");
-        report.Storage = await Task.Run(() => StorageInfoCollector.Collect());
+            // Wave 2: OS, Security, Network, Cloud Identity, Software, Processes, Filters, ACPI & Device Manager
+            progress?.Report("Scanning Network, Security, ACPI Tables & System Services...");
+            var netTask = Task.Run(() => RunStep("Scanning Network Interfaces & Wi-Fi...", NetworkInfoCollector.Collect));
+            var secTask = Task.Run(() => RunStep("Scanning Windows OS, Security, TPM & Updates...", OsSecurityInfoCollector.Collect));
+            var dsregTask = Task.Run(() => RunStep("Querying Entra ID / dsregcmd Diagnostics...", DsregcmdCollector.Collect));
+            var swTask = Task.Run(() => RunStep("Enumerating Installed Software Applications...", SoftwareCollector.Collect));
+            var procTask = Task.Run(() => RunStep("Querying Active Processes & Windows Services...", ProcessServiceCollector.Collect));
+            var fltTask = Task.Run(() => RunStep("Querying Network & Filesystem Filter Drivers (fltmc)...", FilterDriverCollector.Collect));
+            var acpiTask = Task.Run(() => RunStep("Reading ACPI Firmware Tables & Parsing DSDT...", AcpiService.Collect));
+            var dmTask = Task.Run(() => RunStep("Enumerating Hardware Devices (Device Manager)...", DeviceManagerCollector.Collect));
 
-        progress?.Report("Scanning Network Interfaces & Wi-Fi...");
-        report.Network = await Task.Run(() => NetworkInfoCollector.Collect());
+            await Task.WhenAll(netTask, secTask, dsregTask, swTask, procTask, fltTask, acpiTask, dmTask).ConfigureAwait(false);
 
-        progress?.Report("Scanning Battery & Power Subsystem...");
-        report.Battery = await Task.Run(() => BatteryInfoCollector.Collect());
+            report.Network = netTask.Result;
+            report.Security = secTask.Result;
+            report.Dsregcmd = dsregTask.Result;
+            report.Software = swTask.Result;
+            report.ProcessService = procTask.Result;
+            report.FilterDrivers = fltTask.Result;
+            report.Acpi = acpiTask.Result;
+            report.DeviceManager = dmTask.Result;
 
-        progress?.Report("Scanning Windows OS, Security, TPM & Updates...");
-        report.Security = await Task.Run(() => OsSecurityInfoCollector.Collect());
+            progress?.Report("Building System Summary Overview...");
+            report.Overview = BuildOverview(report);
 
-        progress?.Report("Querying Entra ID / dsregcmd Diagnostics...");
-        report.Dsregcmd = await DsregcmdCollector.CollectAsync();
+            report.GeneratedAt = DateTime.Now;
+            CurrentReport = report;
 
-        progress?.Report("Enumerating Installed Software Applications...");
-        report.Software = await Task.Run(() => SoftwareCollector.Collect());
-
-        progress?.Report("Querying Active Processes & Windows Services...");
-        report.ProcessService = await Task.Run(() => ProcessServiceCollector.Collect());
-
-        progress?.Report("Querying Network & Filesystem Filter Drivers (fltmc)...");
-        report.FilterDrivers = await Task.Run(() => FilterDriverCollector.Collect());
-
-        progress?.Report("Reading ACPI Firmware Tables & Parsing DSDT...");
-        report.Acpi = await Task.Run(() => AcpiService.Collect());
-
-        progress?.Report("Enumerating Hardware Devices (Device Manager)...");
-        report.DeviceManager = await Task.Run(() => DeviceManagerCollector.Collect());
-
-        progress?.Report("Building System Summary Overview...");
-        report.Overview = BuildOverview(report);
-
-        report.GeneratedAt = DateTime.Now;
-        CurrentReport = report;
-
-        progress?.Report("Ready.");
-        return report;
+            progress?.Report("Ready.");
+            return report;
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
     }
 
     private SystemOverviewInfo BuildOverview(SystemReport report)
@@ -83,6 +102,7 @@ public class SystemDiagnosticsService
             InstallDate = report.Security.InstallDate,
             BootMode = report.Motherboard.Properties.Find(p => p.Property.Contains("Boot Mode"))?.Value ?? "UEFI",
             SecureBootState = report.Security.SecureBootEnabled ? "Enabled" : "Disabled",
+            HypervisorPresent = report.Cpu.VirtualizationFirmwareEnabled,
             TimeZone = TimeZoneInfo.Local.DisplayName
         };
 

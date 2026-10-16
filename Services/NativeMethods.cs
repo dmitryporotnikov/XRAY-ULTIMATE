@@ -1,10 +1,87 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace XRAY_ULTIMATE.Services;
 
 public static class NativeMethods
 {
+    public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, int dwProcessId);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool QueryFullProcessImageName(IntPtr hProcess, uint dwFlags, StringBuilder lpExeName, ref uint lpdwSize);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool CloseHandle(IntPtr hObject);
+
+    public static string TryGetProcessImagePath(int processId)
+    {
+        if (processId <= 4) return string.Empty;
+        IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, processId);
+        if (hProcess == IntPtr.Zero) return string.Empty;
+
+        try
+        {
+            uint capacity = 1024;
+            var sb = new StringBuilder((int)capacity);
+            if (QueryFullProcessImageName(hProcess, 0, sb, ref capacity))
+            {
+                return sb.ToString();
+            }
+        }
+        catch { }
+        finally
+        {
+            CloseHandle(hProcess);
+        }
+        return string.Empty;
+    }
+
+    public static string RunProcessCaptureOutput(string fileName, string arguments, int timeoutMs = 3000, string? workingDirectory = null)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            if (!string.IsNullOrEmpty(workingDirectory))
+            {
+                psi.WorkingDirectory = workingDirectory;
+            }
+
+            using var proc = Process.Start(psi);
+            if (proc == null) return string.Empty;
+
+            var outputTask = proc.StandardOutput.ReadToEndAsync();
+            _ = proc.StandardError.ReadToEndAsync();
+
+            if (!proc.WaitForExit(timeoutMs))
+            {
+                try { proc.Kill(entireProcessTree: true); } catch { }
+            }
+
+            if (outputTask.Wait(Math.Min(timeoutMs, 1000)))
+            {
+                return outputTask.Result ?? string.Empty;
+            }
+        }
+        catch { }
+
+        return string.Empty;
+    }
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
     public class MEMORYSTATUSEX
     {

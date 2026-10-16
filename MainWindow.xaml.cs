@@ -63,17 +63,21 @@ public sealed partial class MainWindow : Window
     private async Task InitializeSystemAsync()
     {
         BrdInitialLoading.Visibility = Visibility.Visible;
-
-        var progress = new Progress<string>(msg =>
+        try
         {
-            TxtInitProgress.Text = msg;
-        });
+            var progress = new Progress<string>(msg =>
+            {
+                TxtInitProgress.Text = msg;
+            });
 
-        await SystemDiagnosticsService.Instance.RefreshAllAsync(progress);
-
-        BrdInitialLoading.Visibility = Visibility.Collapsed;
-        NavView.SelectedItem = NavDashboard;
-        ContentFrame.Navigate(typeof(DashboardPage));
+            await SystemDiagnosticsService.Instance.RefreshAllAsync(progress);
+        }
+        finally
+        {
+            BrdInitialLoading.Visibility = Visibility.Collapsed;
+            NavView.SelectedItem = NavDashboard;
+            ContentFrame.Navigate(typeof(DashboardPage));
+        }
     }
 
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -119,15 +123,16 @@ public sealed partial class MainWindow : Window
     private async void BtnQuickRefresh_Click(object sender, RoutedEventArgs e)
     {
         BtnQuickRefresh.IsEnabled = false;
+        if (PrgNavLoading != null) PrgNavLoading.Visibility = Visibility.Visible;
         try
         {
             await SystemDiagnosticsService.Instance.RefreshAllAsync();
-            // Re-navigate current page to trigger refresh
             var currentType = ContentFrame.CurrentSourcePageType ?? typeof(DashboardPage);
-            ContentFrame.Navigate(currentType);
+            ContentFrame.Navigate(currentType, DateTime.UtcNow.Ticks);
         }
         finally
         {
+            if (PrgNavLoading != null) PrgNavLoading.Visibility = Visibility.Collapsed;
             BtnQuickRefresh.IsEnabled = true;
         }
     }

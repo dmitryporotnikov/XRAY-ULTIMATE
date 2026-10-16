@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Windows.Storage.Pickers;
 using XRAY_ULTIMATE.Helpers;
 using XRAY_ULTIMATE.Models;
 using XRAY_ULTIMATE.Services;
@@ -90,19 +89,18 @@ public sealed partial class FiltersPage : Page
         {
             bool isFs = RbFsFilters?.IsChecked == true;
             string defaultName = isFs
-                ? $"FilesystemFilters_fltmc_{Environment.MachineName}_{DateTime.Now:yyyyMMdd}"
-                : $"NetworkFilterDrivers_{Environment.MachineName}_{DateTime.Now:yyyyMMdd}";
+                ? $"FilesystemFilters_fltmc_{Environment.MachineName}_{DateTime.Now:yyyyMMdd}.csv"
+                : $"NetworkFilterDrivers_{Environment.MachineName}_{DateTime.Now:yyyyMMdd}.csv";
 
-            var savePicker = new FileSavePicker
-            {
-                SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
-                SuggestedFileName = defaultName
-            };
-            savePicker.FileTypeChoices.Add("CSV Comma-Separated Values", new List<string> { ".csv" });
-            WindowHelper.InitializePicker(savePicker);
+            string? filePath = NativeFileDialog.SaveFile(
+                "Export Filter Drivers to CSV",
+                defaultName,
+                ".csv",
+                ("CSV Comma-Separated Values (*.csv)", "*.csv"),
+                ("All Files (*.*)", "*.*")
+            );
 
-            var file = await savePicker.PickSaveFileAsync();
-            if (file != null)
+            if (!string.IsNullOrEmpty(filePath))
             {
                 var sb = new StringBuilder();
                 if (isFs)
@@ -110,7 +108,7 @@ public sealed partial class FiltersPage : Page
                     sb.AppendLine("FilterName,Altitude,Category,Instances,Frame,Description");
                     foreach (var fs in _allFsFilters)
                     {
-                        sb.AppendLine($"\"{fs.FilterName}\",\"{fs.Altitude}\",\"{fs.Category}\",{fs.NumInstances},\"{fs.Frame}\",\"{fs.Description}\"");
+                        sb.AppendLine($"{EscapeCsv(fs.FilterName)},{EscapeCsv(fs.Altitude)},{EscapeCsv(fs.Category)},{fs.NumInstances},{EscapeCsv(fs.Frame)},{EscapeCsv(fs.Description)}");
                     }
                 }
                 else
@@ -118,13 +116,19 @@ public sealed partial class FiltersPage : Page
                     sb.AppendLine("DisplayName,ServiceName,FilterClass,FilterType,State");
                     foreach (var net in _allNetFilters)
                     {
-                        sb.AppendLine($"\"{net.DisplayName}\",\"{net.ServiceName}\",\"{net.FilterClass}\",\"{net.FilterType}\",\"{net.State}\"");
+                        sb.AppendLine($"{EscapeCsv(net.DisplayName)},{EscapeCsv(net.ServiceName)},{EscapeCsv(net.FilterClass)},{EscapeCsv(net.FilterType)},{EscapeCsv(net.State)}");
                     }
                 }
 
-                await File.WriteAllTextAsync(file.Path, sb.ToString(), Encoding.UTF8);
+                await File.WriteAllTextAsync(filePath, sb.ToString(), Encoding.UTF8);
             }
         }
         catch { }
+    }
+
+    private static string EscapeCsv(string str)
+    {
+        if (string.IsNullOrEmpty(str)) return "\"\"";
+        return $"\"{str.Replace("\"", "\"\"")}\"";
     }
 }

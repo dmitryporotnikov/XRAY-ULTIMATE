@@ -12,7 +12,7 @@ public static class MotherboardInfoCollector
 
         try
         {
-            var board = WmiService.QueryFirst("SELECT * FROM Win32_BaseBoard");
+            var board = WmiService.QueryFirst("SELECT Manufacturer, Product, Version, SerialNumber FROM Win32_BaseBoard");
             if (board != null)
             {
                 info.Manufacturer = board.GetString("Manufacturer");
@@ -25,7 +25,7 @@ public static class MotherboardInfoCollector
 
         try
         {
-            var bios = WmiService.QueryFirst("SELECT * FROM Win32_BIOS");
+            var bios = WmiService.QueryFirst("SELECT Manufacturer, SMBIOSBIOSVersion, Version, ReleaseDate, SMBIOSMajorVersion, SMBIOSMinorVersion FROM Win32_BIOS");
             if (bios != null)
             {
                 info.BiosVendor = bios.GetString("Manufacturer");
@@ -48,7 +48,7 @@ public static class MotherboardInfoCollector
 
         try
         {
-            var systemProduct = WmiService.QueryFirst("SELECT * FROM Win32_ComputerSystemProduct");
+            var systemProduct = WmiService.QueryFirst("SELECT Family, SKUNumber FROM Win32_ComputerSystemProduct");
             if (systemProduct != null)
             {
                 info.SystemFamily = systemProduct.GetString("Family");

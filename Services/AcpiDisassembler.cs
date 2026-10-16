@@ -9,6 +9,9 @@ namespace XRAY_ULTIMATE.Services;
 
 public static class AcpiDisassembler
 {
+    private static bool _iaslChecked;
+    private static string? _cachedIaslPath;
+
     public static string DisassembleToDsl(byte[]? amlBytes, string defaultName = "DSDT")
     {
         if (amlBytes == null || amlBytes.Length < 36)
@@ -25,71 +28,93 @@ public static class AcpiDisassembler
         return DisassembleBuiltIn(amlBytes, defaultName);
     }
 
-    private static string? TryDisassembleWithIasl(byte[] amlBytes)
+    private static string? ResolveIaslPath()
     {
+        if (_iaslChecked) return _cachedIaslPath;
+
         try
         {
-            // Look for iasl.exe in app folder, tools folder, or PATH
             string baseDir = AppContext.BaseDirectory;
-            string[] possiblePaths =
+            string[] localPaths =
             {
                 Path.Combine(baseDir, "iasl.exe"),
-                Path.Combine(baseDir, "tools", "iasl.exe"),
-                "iasl.exe"
+                Path.Combine(baseDir, "tools", "iasl.exe")
             };
 
-            string? iaslPath = null;
-            foreach (var p in possiblePaths)
+            foreach (var p in localPaths)
             {
-                if (p == "iasl.exe" || File.Exists(p))
+                if (File.Exists(p))
                 {
-                    iaslPath = p;
-                    break;
+                    _cachedIaslPath = p;
+                    _iaslChecked = true;
+                    return _cachedIaslPath;
                 }
             }
 
-            if (iaslPath == null) return null;
+            string? pathEnv = Environment.GetEnvironmentVariable("PATH");
+            if (!string.IsNullOrEmpty(pathEnv))
+            {
+                foreach (var dir in pathEnv.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    try
+                    {
+                        string candidate = Path.Combine(dir.Trim(), "iasl.exe");
+                        if (File.Exists(candidate))
+                        {
+                            _cachedIaslPath = candidate;
+                            break;
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch { }
 
-            string tempDir = Path.Combine(Path.GetTempPath(), "xray_acpi_" + Guid.NewGuid().ToString("N"));
+        _iaslChecked = true;
+        return _cachedIaslPath;
+    }
+
+    private static string? TryDisassembleWithIasl(byte[] amlBytes)
+    {
+        string? iaslPath = ResolveIaslPath();
+        if (string.IsNullOrEmpty(iaslPath)) return null;
+
+        string tempDir = Path.Combine(Path.GetTempPath(), "xray_acpi_" + Guid.NewGuid().ToString("N"));
+        try
+        {
             Directory.CreateDirectory(tempDir);
             string amlFile = Path.Combine(tempDir, "table.aml");
             string dslFile = Path.Combine(tempDir, "table.dsl");
 
             File.WriteAllBytes(amlFile, amlBytes);
 
-            var psi = new ProcessStartInfo
-            {
-                FileName = iaslPath,
-                Arguments = $"-d \"{amlFile}\"",
-                WorkingDirectory = tempDir,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+            NativeMethods.RunProcessCaptureOutput(iaslPath, $"-d \"{amlFile}\"", timeoutMs: 8000, workingDirectory: tempDir);
 
-            using var proc = Process.Start(psi);
-            if (proc != null)
+            if (File.Exists(dslFile))
             {
-                proc.WaitForExit(10000);
-                if (File.Exists(dslFile))
-                {
-                    string content = File.ReadAllText(dslFile, Encoding.UTF8);
-                    try { Directory.Delete(tempDir, true); } catch { }
-                    return content;
-                }
+                return File.ReadAllText(dslFile, Encoding.UTF8);
             }
-
-            try { Directory.Delete(tempDir, true); } catch { }
         }
         catch { }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+            catch { }
+        }
 
         return null;
     }
 
     private static string DisassembleBuiltIn(byte[] aml, string tableName)
     {
-        var sb = new StringBuilder();
+        var sb = new StringBuilder(Math.Max(4096, aml.Length * 2));
 
         // Parse Table Header
         string sig = ReadFixedAscii(aml, 0, 4);

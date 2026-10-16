@@ -113,9 +113,11 @@ public static class NativeFileDialog
         IntPtr ownerHwnd = WindowHelper.MainWindowHandle;
 
         // Try modern IFileSaveDialog first
+        IFileSaveDialog? dialog = null;
+        IShellItem? item = null;
         try
         {
-            var dialog = (IFileSaveDialog)new FileSaveDialogRCW();
+            dialog = (IFileSaveDialog)new FileSaveDialogRCW();
             dialog.SetTitle(title);
             dialog.SetFileName(defaultFileName);
             if (!string.IsNullOrEmpty(defaultExtension))
@@ -143,7 +145,7 @@ public static class NativeFileDialog
             int hr = dialog.Show(ownerHwnd);
             if (hr == 0) // S_OK
             {
-                dialog.GetResult(out IShellItem item);
+                dialog.GetResult(out item);
                 if (item != null)
                 {
                     item.GetDisplayName(SIGDN_FILESYSPATH, out string path);
@@ -156,6 +158,17 @@ public static class NativeFileDialog
         {
             // Fallback to classic GetSaveFileName
             return SaveFileWithClassicDialog(ownerHwnd, title, defaultFileName, defaultExtension, filters);
+        }
+        finally
+        {
+            if (item != null && Marshal.IsComObject(item))
+            {
+                try { Marshal.ReleaseComObject(item); } catch { }
+            }
+            if (dialog != null && Marshal.IsComObject(dialog))
+            {
+                try { Marshal.ReleaseComObject(dialog); } catch { }
+            }
         }
     }
 

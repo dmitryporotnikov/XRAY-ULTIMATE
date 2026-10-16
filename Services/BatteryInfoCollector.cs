@@ -45,7 +45,7 @@ public static class BatteryInfoCollector
         // Query WMI Win32_Battery
         try
         {
-            var batteryData = WmiService.QueryFirst("SELECT * FROM Win32_Battery");
+            var batteryData = WmiService.QueryFirst("SELECT Name, DeviceID, DesignCapacity, FullChargeCapacity, Chemistry FROM Win32_Battery");
             if (batteryData != null)
             {
                 info.IsBatteryPresent = true;
@@ -115,19 +115,9 @@ public static class BatteryInfoCollector
     {
         try
         {
-            var psi = new ProcessStartInfo
+            string output = NativeMethods.RunProcessCaptureOutput("powercfg.exe", "/getactivescheme", timeoutMs: 2000);
+            if (!string.IsNullOrEmpty(output))
             {
-                FileName = "powercfg.exe",
-                Arguments = "/getactivescheme",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            using var proc = Process.Start(psi);
-            if (proc != null)
-            {
-                string output = proc.StandardOutput.ReadToEnd();
-                proc.WaitForExit(2000);
                 var match = Regex.Match(output, @"\(([^)]+)\)");
                 if (match.Success)
                 {

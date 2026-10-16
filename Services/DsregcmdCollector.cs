@@ -22,23 +22,9 @@ public static class DsregcmdCollector
         {
             var systemPath = Environment.GetFolderPath(Environment.SpecialFolder.System);
             var exePath = Path.Combine(systemPath, "dsregcmd.exe");
+            string fileName = File.Exists(exePath) ? exePath : "dsregcmd.exe";
 
-            var psi = new ProcessStartInfo
-            {
-                FileName = File.Exists(exePath) ? exePath : "dsregcmd.exe",
-                Arguments = "/status",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var proc = Process.Start(psi);
-            if (proc != null)
-            {
-                output = proc.StandardOutput.ReadToEnd();
-                proc.WaitForExit(4000);
-            }
+            output = NativeMethods.RunProcessCaptureOutput(fileName, "/status", timeoutMs: 4000);
         }
         catch (Exception ex)
         {

@@ -40,7 +40,7 @@ public static class OsSecurityInfoCollector
         // Query WMI Win32_OperatingSystem for paths & install date
         try
         {
-            var osData = WmiService.QueryFirst("SELECT * FROM Win32_OperatingSystem");
+            var osData = WmiService.QueryFirst("SELECT Caption, WindowsDirectory, SystemDirectory, InstallDate FROM Win32_OperatingSystem");
             if (osData != null)
             {
                 if (string.IsNullOrEmpty(info.ProductName))
@@ -90,7 +90,7 @@ public static class OsSecurityInfoCollector
         // TPM Details (Multi-Tier: WMI -> PnP SecurityDevices -> ACPI Firmware)
         try
         {
-            var tpmData = WmiService.QueryFirst("SELECT * FROM Win32_Tpm", @"root\CIMV2\Security\MicrosoftTpm");
+            var tpmData = WmiService.QueryFirst("SELECT SpecVersion, ManufacturerIdTxt, ManufacturerId, ManufacturerVersion, IsActivated_InitialValue, IsEnabled_InitialValue, IsOwned_InitialValue FROM Win32_Tpm", @"root\CIMV2\Security\MicrosoftTpm");
             if (tpmData != null)
             {
                 info.Tpm.IsPresent = true;
@@ -147,7 +147,7 @@ public static class OsSecurityInfoCollector
         // Antivirus Products
         try
         {
-            var avData = WmiService.Query("SELECT * FROM AntiVirusProduct", @"root\SecurityCenter2");
+            var avData = WmiService.Query("SELECT displayName, instanceGuid, pathToSignedProductExe, productState FROM AntiVirusProduct", @"root\SecurityCenter2");
             foreach (var av in avData)
             {
                 var product = new AntivirusInfo

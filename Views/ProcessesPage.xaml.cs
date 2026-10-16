@@ -157,7 +157,7 @@ public sealed partial class ProcessesPage : Page
         {
             try
             {
-                var proc = Process.GetProcessById(p.Id);
+                using var proc = Process.GetProcessById(p.Id);
                 proc.Kill(entireProcessTree: true);
 
                 IbStatus.Title = "Process Terminated";

@@ -13,7 +13,7 @@ public static class GpuInfoCollector
 
         try
         {
-            var gpus = WmiService.Query("SELECT * FROM Win32_VideoController");
+            var gpus = WmiService.Query("SELECT Name, AdapterRAM, DriverVersion, DriverDate, VideoProcessor, CurrentHorizontalResolution, CurrentVerticalResolution, CurrentRefreshRate, VideoModeDescription, Status, PNPDeviceID FROM Win32_VideoController");
             foreach (var g in gpus)
             {
                 var card = new GraphicsCardInfo
@@ -45,7 +45,7 @@ public static class GpuInfoCollector
 
         try
         {
-            var monitors = WmiService.Query("SELECT * FROM Win32_DesktopMonitor");
+            var monitors = WmiService.Query("SELECT Name, Caption, MonitorManufacturer, ScreenWidth, ScreenHeight, MonitorType FROM Win32_DesktopMonitor");
             foreach (var m in monitors)
             {
                 var mon = new MonitorInfo

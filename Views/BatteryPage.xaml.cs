@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using XRAY_ULTIMATE.Helpers;
@@ -18,7 +19,7 @@ public sealed partial class BatteryPage : Page
         this.Loaded += BatteryPage_Loaded;
     }
 
-    private void BatteryPage_Loaded(object sender, RoutedEventArgs e)
+    private async void BatteryPage_Loaded(object sender, RoutedEventArgs e)
     {
         var bat = SystemDiagnosticsService.Instance.CurrentReport.Battery;
 
@@ -64,12 +65,12 @@ public sealed partial class BatteryPage : Page
         TxtPlanName.Text = string.IsNullOrEmpty(bat.ActivePowerScheme) ? "Balanced" : bat.ActivePowerScheme;
         LstBatteryProperties.ItemsSource = bat.Properties;
 
-        LoadPowerPlans();
+        await LoadPowerPlansAsync();
     }
 
-    private void LoadPowerPlans()
+    private async Task LoadPowerPlansAsync()
     {
-        _powerPlans = PowerPlanHelper.GetPowerPlans();
+        _powerPlans = await PowerPlanHelper.GetPowerPlansAsync();
         CmbPowerPlans.ItemsSource = null;
         CmbPowerPlans.ItemsSource = _powerPlans.Select(p => p.DisplayText).ToList();
 
@@ -86,13 +87,13 @@ public sealed partial class BatteryPage : Page
         PowerPlanHelper.OpenPowerSettings();
     }
 
-    private void BtnApplyPlan_Click(object sender, RoutedEventArgs e)
+    private async void BtnApplyPlan_Click(object sender, RoutedEventArgs e)
     {
         int selectedIndex = CmbPowerPlans.SelectedIndex;
         if (selectedIndex >= 0 && selectedIndex < _powerPlans.Count)
         {
             var plan = _powerPlans[selectedIndex];
-            bool success = PowerPlanHelper.SetActivePlan(plan.Guid);
+            bool success = await PowerPlanHelper.SetActivePlanAsync(plan.Guid);
             if (success)
             {
                 IbPowerStatus.Title = "Power Plan Applied";
@@ -100,7 +101,7 @@ public sealed partial class BatteryPage : Page
                 IbPowerStatus.Severity = InfoBarSeverity.Success;
                 IbPowerStatus.IsOpen = true;
 
-                LoadPowerPlans();
+                await LoadPowerPlansAsync();
             }
             else
             {
@@ -114,29 +115,35 @@ public sealed partial class BatteryPage : Page
 
     private void MenuRestoreHighPerf_Click(object sender, RoutedEventArgs e)
     {
-        RestoreAndActivatePlan(PowerPlanHelper.StandardHighPerformance.Name, PowerPlanHelper.StandardHighPerformance.Guid);
+        _ = RestoreAndActivatePlanAsync(PowerPlanHelper.StandardHighPerformance.Name, PowerPlanHelper.StandardHighPerformance.Guid);
     }
 
     private void MenuRestorePowerSaver_Click(object sender, RoutedEventArgs e)
     {
-        RestoreAndActivatePlan(PowerPlanHelper.StandardPowerSaver.Name, PowerPlanHelper.StandardPowerSaver.Guid);
+        _ = RestoreAndActivatePlanAsync(PowerPlanHelper.StandardPowerSaver.Name, PowerPlanHelper.StandardPowerSaver.Guid);
     }
 
     private void MenuRestoreUltimate_Click(object sender, RoutedEventArgs e)
     {
-        RestoreAndActivatePlan(PowerPlanHelper.StandardUltimate.Name, PowerPlanHelper.StandardUltimate.Guid);
+        _ = RestoreAndActivatePlanAsync(PowerPlanHelper.StandardUltimate.Name, PowerPlanHelper.StandardUltimate.Guid);
     }
 
-    private void RestoreAndActivatePlan(string planName, string baseGuid)
+    private async Task RestoreAndActivatePlanAsync(string planName, string baseGuid)
     {
-        if (PowerPlanHelper.RestoreStandardPlan(baseGuid, out string newGuid))
+        var (restored, newGuid) = await Task.Run(() =>
         {
-            PowerPlanHelper.SetActivePlan(newGuid);
+            bool ok = PowerPlanHelper.RestoreStandardPlan(baseGuid, out string guid);
+            return (ok, guid);
+        });
+
+        if (restored)
+        {
+            await PowerPlanHelper.SetActivePlanAsync(newGuid);
             IbPowerStatus.Title = "Plan Restored";
             IbPowerStatus.Message = $"'{planName}' scheme was restored and activated successfully.";
             IbPowerStatus.Severity = InfoBarSeverity.Success;
             IbPowerStatus.IsOpen = true;
-            LoadPowerPlans();
+            await LoadPowerPlansAsync();
         }
         else
         {

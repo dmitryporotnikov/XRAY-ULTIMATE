@@ -14,7 +14,7 @@ public static class CpuInfoCollector
 
         try
         {
-            var procData = WmiService.QueryFirst("SELECT * FROM Win32_Processor");
+            var procData = WmiService.QueryFirst("SELECT Name, Manufacturer, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed, CurrentClockSpeed, SocketDesignation, Stepping, Revision, L2CacheSize, L3CacheSize, CurrentVoltage, Architecture FROM Win32_Processor");
             if (procData != null)
             {
                 info.ProcessorName = procData.GetString("Name");
@@ -93,7 +93,7 @@ public static class CpuInfoCollector
         catch { }
 
         // Instruction Sets & Features
-        CheckFeatures(info);
+        bool hypervisorActive = CheckFeatures(info);
 
         // Build Key-Value Properties
         info.Properties.Add(new PropertyItem("General", "Processor Name", info.ProcessorName));
@@ -118,27 +118,16 @@ public static class CpuInfoCollector
             info.Properties.Add(new PropertyItem("Cache", "L3 Cache", $"{info.L3CacheKB} KB ({info.L3CacheKB / 1024.0:F1} MB)"));
 
         // Virtualization Status
-        string virtStatus = info.VirtualizationFirmwareEnabled
-            ? "Enabled in Firmware"
-            : "Disabled / Not Supported";
-
-        try
-        {
-            var cs = WmiService.QueryFirst("SELECT HypervisorPresent FROM Win32_ComputerSystem");
-            if (cs != null && cs.GetBool("HypervisorPresent"))
-            {
-                info.VirtualizationFirmwareEnabled = true;
-                virtStatus = "Enabled in Firmware (Hyper-V / WSL Active)";
-            }
-        }
-        catch { }
+        string virtStatus = hypervisorActive
+            ? "Enabled in Firmware (Hyper-V / WSL Active)"
+            : (info.VirtualizationFirmwareEnabled ? "Enabled in Firmware" : "Disabled / Not Supported");
 
         info.Properties.Add(new PropertyItem("Virtualization", "Hardware Virtualization (VT-x / AMD-V)", virtStatus));
 
         return info;
     }
 
-    private static void CheckFeatures(CpuInfo info)
+    private static bool CheckFeatures(CpuInfo info)
     {
         bool hypervisorActive = false;
         try
@@ -231,5 +220,7 @@ public static class CpuInfoCollector
                 catch { }
             }
         }
+
+        return hypervisorActive;
     }
 }

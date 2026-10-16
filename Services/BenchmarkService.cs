@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Threading;
@@ -9,44 +10,51 @@ namespace XRAY_ULTIMATE.Services;
 
 public static class BenchmarkService
 {
-    public static async Task<BenchmarkResult> RunBenchmarkAsync(IProgress<string>? progress = null)
+    public static async Task<BenchmarkResult> RunBenchmarkAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default)
     {
         return await Task.Run(() =>
         {
             var result = new BenchmarkResult
             {
                 RunTime = DateTime.Now,
+                CpuModel = SystemDiagnosticsService.Instance.CurrentReport.Cpu.ProcessorName,
                 CoresUsed = Environment.ProcessorCount
             };
 
             var swTotal = Stopwatch.StartNew();
 
             // 1. Single-Thread CPU Benchmark
+            cancellationToken.ThrowIfCancellationRequested();
             progress?.Report("Running Single-Core CPU Benchmark (Integer & Crypto)...");
             long singleThreadScore = RunSingleThreadTest();
             result.CpuSingleThreadScore = singleThreadScore;
 
             // 2. Multi-Thread CPU Benchmark
+            cancellationToken.ThrowIfCancellationRequested();
             progress?.Report($"Running Multi-Core CPU Benchmark across {Environment.ProcessorCount} threads...");
             long multiThreadScore = RunMultiThreadTest();
             result.CpuMultiThreadScore = multiThreadScore;
 
             // 3. Memory Write Benchmark
+            cancellationToken.ThrowIfCancellationRequested();
             progress?.Report("Testing Memory Write Bandwidth...");
             double writeMBs = RunMemoryWriteTest();
             result.MemoryWriteBandwidthMBs = writeMBs;
 
             // 4. Memory Read Benchmark
+            cancellationToken.ThrowIfCancellationRequested();
             progress?.Report("Testing Memory Read Bandwidth...");
             double readMBs = RunMemoryReadTest();
             result.MemoryReadBandwidthMBs = readMBs;
 
             // 5. Memory Copy Benchmark
+            cancellationToken.ThrowIfCancellationRequested();
             progress?.Report("Testing Memory Copy Bandwidth...");
             double copyMBs = RunMemoryCopyTest();
             result.MemoryCopyBandwidthMBs = copyMBs;
 
             // 6. Memory Latency Benchmark
+            cancellationToken.ThrowIfCancellationRequested();
             progress?.Report("Testing Memory Latency...");
             double latencyNs = RunMemoryLatencyTest();
             result.MemoryLatencyNs = latencyNs;
@@ -57,7 +65,7 @@ public static class BenchmarkService
 
             progress?.Report("Benchmark completed successfully.");
             return result;
-        });
+        }, cancellationToken);
     }
 
     private static long RunSingleThreadTest()
@@ -66,6 +74,7 @@ public static class BenchmarkService
         long ops = 0;
         using var sha = SHA256.Create();
         byte[] buffer = new byte[1024];
+        Span<byte> hash = stackalloc byte[32];
         new Random(42).NextBytes(buffer);
 
         while (sw.ElapsedMilliseconds < 1200)
@@ -73,8 +82,10 @@ public static class BenchmarkService
             for (int i = 0; i < 500; i++)
             {
                 buffer[0] = (byte)(i & 0xFF);
-                var hash = sha.ComputeHash(buffer);
-                ops += hash[0];
+                if (sha.TryComputeHash(buffer, hash, out _))
+                {
+                    ops += hash[0];
+                }
             }
         }
         sw.Stop();
@@ -92,7 +103,8 @@ public static class BenchmarkService
             long localOps = 0;
             using var sha = SHA256.Create();
             byte[] buffer = new byte[1024];
-            new Random(Thread.CurrentThread.ManagedThreadId).NextBytes(buffer);
+            Span<byte> hash = stackalloc byte[32];
+            new Random(Environment.CurrentManagedThreadId).NextBytes(buffer);
 
             var localSw = Stopwatch.StartNew();
             while (localSw.ElapsedMilliseconds < 1200)
@@ -100,8 +112,10 @@ public static class BenchmarkService
                 for (int i = 0; i < 500; i++)
                 {
                     buffer[0] = (byte)(i & 0xFF);
-                    var hash = sha.ComputeHash(buffer);
-                    localOps += hash[0];
+                    if (sha.TryComputeHash(buffer, hash, out _))
+                    {
+                        localOps += hash[0];
+                    }
                 }
             }
             Interlocked.Add(ref totalOps, localOps);
@@ -114,96 +128,124 @@ public static class BenchmarkService
     private static double RunMemoryWriteTest()
     {
         const int size = 64 * 1024 * 1024; // 64 MB
-        byte[] buffer = new byte[size];
-        int iterations = 10;
-
-        var sw = Stopwatch.StartNew();
-        for (int it = 0; it < iterations; it++)
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(size);
+        try
         {
-            byte val = (byte)it;
-            Array.Fill(buffer, val);
-        }
-        sw.Stop();
+            int iterations = 10;
+            var span = buffer.AsSpan(0, size);
 
-        double totalBytes = (double)size * iterations;
-        double seconds = sw.Elapsed.TotalSeconds;
-        return (totalBytes / (1024.0 * 1024.0)) / Math.Max(seconds, 0.001);
+            var sw = Stopwatch.StartNew();
+            for (int it = 0; it < iterations; it++)
+            {
+                span.Fill((byte)it);
+            }
+            sw.Stop();
+
+            double totalBytes = (double)size * iterations;
+            double seconds = sw.Elapsed.TotalSeconds;
+            return (totalBytes / (1024.0 * 1024.0)) / Math.Max(seconds, 0.001);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     private static double RunMemoryReadTest()
     {
         const int size = 64 * 1024 * 1024; // 64 MB
-        byte[] buffer = new byte[size];
-        new Random(123).NextBytes(buffer);
-        int iterations = 10;
-        long sum = 0;
-
-        var sw = Stopwatch.StartNew();
-        for (int it = 0; it < iterations; it++)
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(size);
+        try
         {
-            for (int i = 0; i < size; i += 64)
+            new Random(123).NextBytes(buffer.AsSpan(0, size));
+            int iterations = 10;
+            long sum = 0;
+
+            var sw = Stopwatch.StartNew();
+            for (int it = 0; it < iterations; it++)
             {
-                sum += buffer[i];
+                for (int i = 0; i < size; i += 64)
+                {
+                    sum += buffer[i];
+                }
             }
+            sw.Stop();
+
+            double totalBytes = (double)size * iterations;
+            double seconds = sw.Elapsed.TotalSeconds;
+            if (sum == 42) GC.KeepAlive(buffer);
+
+            return (totalBytes / (1024.0 * 1024.0)) / Math.Max(seconds, 0.001);
         }
-        sw.Stop();
-
-        double totalBytes = (double)size * iterations;
-        double seconds = sw.Elapsed.TotalSeconds;
-        // prevent optimizer from dead-code eliminating
-        if (sum == 42) GC.KeepAlive(buffer);
-
-        return (totalBytes / (1024.0 * 1024.0)) / Math.Max(seconds, 0.001);
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     private static double RunMemoryCopyTest()
     {
         const int size = 64 * 1024 * 1024; // 64 MB
-        byte[] src = new byte[size];
-        byte[] dst = new byte[size];
-        new Random(456).NextBytes(src);
-        int iterations = 8;
-
-        var sw = Stopwatch.StartNew();
-        for (int it = 0; it < iterations; it++)
+        byte[] src = ArrayPool<byte>.Shared.Rent(size);
+        byte[] dst = ArrayPool<byte>.Shared.Rent(size);
+        try
         {
-            Buffer.BlockCopy(src, 0, dst, 0, size);
-        }
-        sw.Stop();
+            new Random(456).NextBytes(src.AsSpan(0, size));
+            int iterations = 8;
 
-        double totalBytes = (double)size * iterations;
-        double seconds = sw.Elapsed.TotalSeconds;
-        return (totalBytes / (1024.0 * 1024.0)) / Math.Max(seconds, 0.001);
+            var sw = Stopwatch.StartNew();
+            for (int it = 0; it < iterations; it++)
+            {
+                Buffer.BlockCopy(src, 0, dst, 0, size);
+            }
+            sw.Stop();
+
+            double totalBytes = (double)size * iterations;
+            double seconds = sw.Elapsed.TotalSeconds;
+            return (totalBytes / (1024.0 * 1024.0)) / Math.Max(seconds, 0.001);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(src);
+            ArrayPool<byte>.Shared.Return(dst);
+        }
     }
 
     private static double RunMemoryLatencyTest()
     {
         // Pointer chasing array test
         const int count = 2 * 1024 * 1024;
-        int[] indices = new int[count];
-        for (int i = 0; i < count; i++) indices[i] = i;
-
-        // Shuffle
-        var rand = new Random(789);
-        for (int i = count - 1; i > 0; i--)
+        int[] indices = ArrayPool<int>.Shared.Rent(count);
+        try
         {
-            int j = rand.Next(i + 1);
-            int tmp = indices[i];
-            indices[i] = indices[j];
-            indices[j] = tmp;
-        }
+            for (int i = 0; i < count; i++) indices[i] = i;
 
-        int curr = 0;
-        const int steps = 5_000_000;
-        var sw = Stopwatch.StartNew();
-        for (int i = 0; i < steps; i++)
+            // Shuffle
+            var rand = new Random(789);
+            for (int i = count - 1; i > 0; i--)
+            {
+                int j = rand.Next(i + 1);
+                int tmp = indices[i];
+                indices[i] = indices[j];
+                indices[j] = tmp;
+            }
+
+            int curr = 0;
+            const int steps = 5_000_000;
+            var sw = Stopwatch.StartNew();
+            for (int i = 0; i < steps; i++)
+            {
+                curr = indices[curr];
+            }
+            sw.Stop();
+
+            GC.KeepAlive(curr);
+            double totalNs = sw.Elapsed.TotalMilliseconds * 1_000_000.0;
+            return Math.Round(totalNs / steps, 1);
+        }
+        finally
         {
-            curr = indices[curr];
+            ArrayPool<int>.Shared.Return(indices);
         }
-        sw.Stop();
-
-        GC.KeepAlive(curr);
-        double totalNs = sw.Elapsed.TotalMilliseconds * 1_000_000.0;
-        return Math.Round(totalNs / steps, 1);
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -14,12 +15,22 @@ public static class FilterDriverCollector
     public static FilterDriversReport Collect()
     {
         var report = new FilterDriversReport();
+        var seenServices = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seenFilters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // 1. Collect Network Filter Drivers
-        CollectNetworkFilters(report);
+        // 1. Collect Network Filter Drivers from netcfg
+        CollectNetworkFilters(report, seenServices);
 
-        // 2. Collect Filesystem Minifilters
-        CollectFilesystemFilters(report);
+        // 2. Collect Filesystem Minifilters from fltmc
+        CollectFilesystemFilters(report, seenFilters);
+
+        // 3. Single-pass scan of HKLM\SYSTEM\CurrentControlSet\Services for both NDIS and Minifilters
+        ScanRegistryServices(report, seenServices, seenFilters);
+
+        // Sort filesystem filters by altitude descending (standard fltmc order)
+        report.FilesystemFilters = report.FilesystemFilters
+            .OrderByDescending(f => double.TryParse(f.Altitude, NumberStyles.Float, CultureInfo.InvariantCulture, out double a) ? a : 0)
+            .ToList();
 
         // Populate Properties
         report.Properties.Add(new PropertyItem("Summary", "Total Network Filter Drivers", report.NetworkFilters.Count.ToString()));
@@ -38,28 +49,14 @@ public static class FilterDriverCollector
         return report;
     }
 
-    private static void CollectNetworkFilters(FilterDriversReport report)
+    private static void CollectNetworkFilters(FilterDriversReport report, HashSet<string> seenServices)
     {
-        var seenServices = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
         // Parse netcfg.exe -s n output
         try
         {
-            var psi = new ProcessStartInfo
+            string output = NativeMethods.RunProcessCaptureOutput("netcfg.exe", "-s n", timeoutMs: 3000);
+            if (!string.IsNullOrEmpty(output))
             {
-                FileName = "netcfg.exe",
-                Arguments = "-s n",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var proc = Process.Start(psi);
-            if (proc != null)
-            {
-                string output = proc.StandardOutput.ReadToEnd();
-                proc.WaitForExit(3000);
-
                 string currentSection = "";
                 var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
@@ -117,129 +114,99 @@ public static class FilterDriverCollector
             }
         }
         catch { }
+    }
 
-        // Augment from Registry NDIS filter drivers
+    private static void CollectFilesystemFilters(FilterDriversReport report, HashSet<string> seenFilters)
+    {
+        // Attempt fltmc.exe filters first (works when elevated)
         try
         {
-            using var servicesKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services");
-            if (servicesKey != null)
+            string output = NativeMethods.RunProcessCaptureOutput("fltmc.exe", "filters", timeoutMs: 3000);
+            if (!string.IsNullOrWhiteSpace(output) && !output.Contains("failed with error", StringComparison.OrdinalIgnoreCase))
             {
-                foreach (var subName in servicesKey.GetSubKeyNames())
+                var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                bool inTable = false;
+
+                foreach (var rawLine in lines)
                 {
-                    try
+                    string line = rawLine.Trim();
+                    if (line.StartsWith("----"))
                     {
-                        using var svc = servicesKey.OpenSubKey(subName);
-                        if (svc == null) continue;
+                        inTable = true;
+                        continue;
+                    }
+                    if (!inTable) continue;
 
-                        string group = svc.GetValue("Group") as string ?? "";
-                        if (group.Equals("NDIS", StringComparison.OrdinalIgnoreCase) ||
-                            group.Equals("NDIS Wrapper", StringComparison.OrdinalIgnoreCase) ||
-                            group.Equals("NDISUIO", StringComparison.OrdinalIgnoreCase))
+                    // Columns: Filter Name, Num Instances, Altitude, Frame
+                    var tokens = Regex.Split(line, @"\s+");
+                    if (tokens.Length >= 4)
+                    {
+                        string name = tokens[0].Trim();
+                        int.TryParse(tokens[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int instances);
+                        string altitude = tokens[2].Trim();
+                        string frame = tokens[3].Trim();
+
+                        if (seenFilters.Add(name))
                         {
-                            if (seenServices.Add(subName))
+                            report.FilesystemFilters.Add(new FilesystemFilter
                             {
-                                string disp = svc.GetValue("DisplayName") as string ?? subName;
-                                string desc = svc.GetValue("Description") as string ?? disp;
-
-                                report.NetworkFilters.Add(new NetworkFilterDriver
-                                {
-                                    ServiceName = subName,
-                                    Name = subName,
-                                    DisplayName = CleanDriverString(disp),
-                                    Description = CleanDriverString(desc),
-                                    FilterClass = InferNetworkFilterClass(subName, disp),
-                                    FilterType = "NDIS Filter Driver",
-                                    State = "Active"
-                                });
-                            }
+                                FilterName = name,
+                                NumInstances = instances,
+                                Altitude = altitude,
+                                Frame = frame,
+                                Category = ClassifyAltitude(altitude),
+                                Description = GetFilterFriendlyName(name)
+                            });
                         }
                     }
-                    catch { }
                 }
             }
         }
         catch { }
     }
 
-    private static void CollectFilesystemFilters(FilterDriversReport report)
+    private static void ScanRegistryServices(FilterDriversReport report, HashSet<string> seenServices, HashSet<string> seenFilters)
     {
-        var seenFilters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        // Attempt fltmc.exe filters first (works when elevated)
-        try
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = "fltmc.exe",
-                Arguments = "filters",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var proc = Process.Start(psi);
-            if (proc != null)
-            {
-                string output = proc.StandardOutput.ReadToEnd();
-                proc.WaitForExit(3000);
-
-                if (!string.IsNullOrWhiteSpace(output) && !output.Contains("failed with error", StringComparison.OrdinalIgnoreCase))
-                {
-                    var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                    bool inTable = false;
-
-                    foreach (var rawLine in lines)
-                    {
-                        string line = rawLine.Trim();
-                        if (line.StartsWith("----"))
-                        {
-                            inTable = true;
-                            continue;
-                        }
-                        if (!inTable) continue;
-
-                        // Columns: Filter Name, Num Instances, Altitude, Frame
-                        var tokens = Regex.Split(line, @"\s+");
-                        if (tokens.Length >= 4)
-                        {
-                            string name = tokens[0].Trim();
-                            int.TryParse(tokens[1].Trim(), out int instances);
-                            string altitude = tokens[2].Trim();
-                            string frame = tokens[3].Trim();
-
-                            if (seenFilters.Add(name))
-                            {
-                                report.FilesystemFilters.Add(new FilesystemFilter
-                                {
-                                    FilterName = name,
-                                    NumInstances = instances,
-                                    Altitude = altitude,
-                                    Frame = frame,
-                                    Category = ClassifyAltitude(altitude),
-                                    Description = GetFilterFriendlyName(name)
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        catch { }
-
-        // Always query Registry Services for all registered minifilters
         try
         {
             using var servicesKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services");
-            if (servicesKey != null)
-            {
-                foreach (var subName in servicesKey.GetSubKeyNames())
-                {
-                    try
-                    {
-                        using var instKey = servicesKey.OpenSubKey($@"{subName}\Instances");
-                        if (instKey == null) continue;
+            if (servicesKey == null) return;
 
+            foreach (var subName in servicesKey.GetSubKeyNames())
+            {
+                try
+                {
+                    using var svc = servicesKey.OpenSubKey(subName);
+                    if (svc == null) continue;
+
+                    // Check NDIS filter driver
+                    string group = svc.GetValue("Group") as string ?? "";
+                    if (group.Equals("NDIS", StringComparison.OrdinalIgnoreCase) ||
+                        group.Equals("NDIS Wrapper", StringComparison.OrdinalIgnoreCase) ||
+                        group.Equals("NDISUIO", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (seenServices.Add(subName))
+                        {
+                            string disp = svc.GetValue("DisplayName") as string ?? subName;
+                            string desc = svc.GetValue("Description") as string ?? disp;
+
+                            report.NetworkFilters.Add(new NetworkFilterDriver
+                            {
+                                ServiceName = subName,
+                                Name = subName,
+                                DisplayName = CleanDriverString(disp),
+                                Description = CleanDriverString(desc),
+                                FilterClass = InferNetworkFilterClass(subName, disp),
+                                FilterType = "NDIS Filter Driver",
+                                State = "Active"
+                            });
+                        }
+                    }
+
+                    // Check Filesystem Minifilter Instances subkey
+                    using var instKey = svc.OpenSubKey("Instances");
+                    if (instKey != null)
+                    {
                         string defaultInst = instKey.GetValue("DefaultInstance") as string ?? "";
                         string altitude = "";
 
@@ -251,7 +218,6 @@ public static class FilterDriverCollector
 
                         if (string.IsNullOrEmpty(altitude))
                         {
-                            // Try first subkey
                             var subKeys = instKey.GetSubKeyNames();
                             if (subKeys.Length > 0)
                             {
@@ -262,8 +228,7 @@ public static class FilterDriverCollector
 
                         if (!string.IsNullOrEmpty(altitude) && seenFilters.Add(subName))
                         {
-                            using var driverKey = servicesKey.OpenSubKey(subName);
-                            string disp = driverKey?.GetValue("DisplayName") as string ?? subName;
+                            string disp = svc.GetValue("DisplayName") as string ?? subName;
 
                             report.FilesystemFilters.Add(new FilesystemFilter
                             {
@@ -276,21 +241,16 @@ public static class FilterDriverCollector
                             });
                         }
                     }
-                    catch { }
                 }
+                catch { }
             }
         }
         catch { }
-
-        // Sort by altitude descending (standard fltmc order)
-        report.FilesystemFilters = report.FilesystemFilters
-            .OrderByDescending(f => double.TryParse(f.Altitude, out double a) ? a : 0)
-            .ToList();
     }
 
     private static string ClassifyAltitude(string altitude)
     {
-        if (double.TryParse(altitude, out double alt))
+        if (double.TryParse(altitude, NumberStyles.Float, CultureInfo.InvariantCulture, out double alt))
         {
             if (alt >= 400000) return "Filter Manager";
             if (alt >= 380000) return "FSFilter Top";

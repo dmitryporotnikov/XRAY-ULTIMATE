@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -29,13 +30,22 @@ public class LiveSensorService : IDisposable
     private double _smoothCpuTemp = 44.0;
     private bool _hasWmiThermalProbeChecked;
     private bool _hasWmiThermalProbe;
+    private DateTime _lastThermalPollUtc = DateTime.MinValue;
+    private double _cachedHardwareCpuTemp = -1.0;
+    private double _cachedCritTripCelsius = 100.0;
 
     private bool _hasNvidiaSmiChecked;
     private string? _nvidiaSmiPath;
+    private DateTime _lastGpuPollUtc = DateTime.MinValue;
+    private bool _hasCachedGpuHardware;
+    private string _cachedGpuName = string.Empty;
+    private double _cachedGpuTemp = 46.0;
+    private double _cachedGpuUtil;
     private double _smoothGpuTemp = 46.0;
 
     private Timer? _timer;
-    private bool _isDisposed;
+    private int _isSampling;
+    private volatile bool _isDisposed;
 
     public event EventHandler<SensorData>? SensorUpdated;
 
@@ -80,24 +90,36 @@ public class LiveSensorService : IDisposable
 
     public void Start(int intervalMs = 1000)
     {
+        if (_isDisposed) return;
         Stop();
-        _timer = new Timer(OnTick, null, 0, intervalMs);
+        _timer = new Timer(OnTick, null, 0, Math.Max(250, intervalMs));
     }
 
     public void Stop()
     {
-        _timer?.Dispose();
-        _timer = null;
+        var timer = Interlocked.Exchange(ref _timer, null);
+        timer?.Dispose();
     }
 
     private void OnTick(object? state)
     {
+        if (_isDisposed) return;
+        if (Interlocked.CompareExchange(ref _isSampling, 1, 0) != 0)
+            return;
+
         try
         {
             var data = ReadCurrentSensors();
-            SensorUpdated?.Invoke(this, data);
+            if (!_isDisposed)
+            {
+                SensorUpdated?.Invoke(this, data);
+            }
         }
         catch { }
+        finally
+        {
+            Interlocked.Exchange(ref _isSampling, 0);
+        }
     }
 
     public SensorData ReadCurrentSensors()
@@ -177,13 +199,13 @@ public class LiveSensorService : IDisposable
         data.SystemUptime = UnitFormatter.FormatUptime(uptimeSpan);
 
         // Thermal / Temperature readings
-        UpdateThermalSensors(data);
-        UpdateGpuSensors(data);
+        UpdateThermalSensors(data, nowUtc);
+        UpdateGpuSensors(data, nowUtc);
 
         return data;
     }
 
-    private void UpdateGpuSensors(SensorData data)
+    private void UpdateGpuSensors(SensorData data, DateTime nowUtc)
     {
         if (!_hasNvidiaSmiChecked)
         {
@@ -204,39 +226,33 @@ public class LiveSensorService : IDisposable
             _hasNvidiaSmiChecked = true;
         }
 
-        bool queriedHardware = false;
-        if (!string.IsNullOrEmpty(_nvidiaSmiPath))
+        if (!string.IsNullOrEmpty(_nvidiaSmiPath) && (nowUtc - _lastGpuPollUtc).TotalSeconds >= 2.5)
         {
+            _lastGpuPollUtc = nowUtc;
             try
             {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = _nvidiaSmiPath,
-                    Arguments = "--query-gpu=name,temperature.gpu,utilization.gpu --format=csv,noheader,nounits",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
+                string output = NativeMethods.RunProcessCaptureOutput(
+                    _nvidiaSmiPath,
+                    "--query-gpu=name,temperature.gpu,utilization.gpu --format=csv,noheader,nounits",
+                    timeoutMs: 1200);
 
-                using var proc = Process.Start(psi);
-                if (proc != null)
+                if (!string.IsNullOrWhiteSpace(output))
                 {
-                    string line = proc.StandardOutput.ReadLine() ?? "";
-                    proc.WaitForExit(1000);
-
+                    int newlineIdx = output.IndexOfAny(new[] { '\r', '\n' });
+                    string line = newlineIdx >= 0 ? output.Substring(0, newlineIdx) : output;
                     var parts = line.Split(',');
                     if (parts.Length >= 3)
                     {
-                        data.GpuName = parts[0].Trim();
-                        if (double.TryParse(parts[1].Trim(), out double temp))
+                        _cachedGpuName = parts[0].Trim();
+                        if (double.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double temp))
                         {
-                            data.GpuTemperatureCelsius = temp;
+                            _cachedGpuTemp = temp;
                             _smoothGpuTemp = temp;
-                            queriedHardware = true;
+                            _hasCachedGpuHardware = true;
                         }
-                        if (double.TryParse(parts[2].Trim(), out double util))
+                        if (double.TryParse(parts[2].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double util))
                         {
-                            data.GpuUsagePercent = util;
+                            _cachedGpuUtil = util;
                         }
                     }
                 }
@@ -244,7 +260,13 @@ public class LiveSensorService : IDisposable
             catch { }
         }
 
-        if (!queriedHardware)
+        if (_hasCachedGpuHardware)
+        {
+            data.GpuName = _cachedGpuName;
+            data.GpuTemperatureCelsius = _cachedGpuTemp;
+            data.GpuUsagePercent = _cachedGpuUtil;
+        }
+        else
         {
             if (string.IsNullOrEmpty(data.GpuName))
             {
@@ -264,16 +286,15 @@ public class LiveSensorService : IDisposable
         else data.GpuThermalStatus = "Optimal / Cool";
     }
 
-    private void UpdateThermalSensors(SensorData data)
+    private void UpdateThermalSensors(SensorData data, DateTime nowUtc)
     {
-        double hardwareTemp = -1.0;
-
-        // Try WMI ACPI Thermal Zone (root\wmi)
-        if (!_hasWmiThermalProbeChecked || _hasWmiThermalProbe)
+        // Try WMI ACPI Thermal Zone (root\wmi), throttled to every 2.5s to avoid WMI polling overhead
+        if ((!_hasWmiThermalProbeChecked || _hasWmiThermalProbe) && (nowUtc - _lastThermalPollUtc).TotalSeconds >= 2.5)
         {
+            _lastThermalPollUtc = nowUtc;
             try
             {
-                var thermalList = WmiService.Query("SELECT CurrentTemperature, CriticalTripPoint FROM MSAcpi_ThermalZoneTemperature", @"root\wmi");
+                var thermalList = WmiService.Query("SELECT CurrentTemperature, CriticalTripPoint FROM MSAcpi_ThermalZoneTemperature", @"root\wmi", maxResults: 1);
                 if (thermalList.Count > 0)
                 {
                     _hasWmiThermalProbe = true;
@@ -282,11 +303,11 @@ public class LiveSensorService : IDisposable
 
                     if (rawTemp > 2732 && rawTemp < 4000)
                     {
-                        hardwareTemp = (rawTemp - 2732) / 10.0;
+                        _cachedHardwareCpuTemp = (rawTemp - 2732) / 10.0;
                     }
                     if (rawCrit > 2732 && rawCrit < 4000)
                     {
-                        data.CriticalTripPointCelsius = (rawCrit - 2732) / 10.0;
+                        _cachedCritTripCelsius = (rawCrit - 2732) / 10.0;
                     }
                 }
                 else
@@ -301,9 +322,11 @@ public class LiveSensorService : IDisposable
             _hasWmiThermalProbeChecked = true;
         }
 
-        if (hardwareTemp > 0)
+        data.CriticalTripPointCelsius = _cachedCritTripCelsius;
+
+        if (_cachedHardwareCpuTemp > 0)
         {
-            data.CpuTemperatureCelsius = Math.Round(hardwareTemp, 1);
+            data.CpuTemperatureCelsius = Math.Round(_cachedHardwareCpuTemp, 1);
         }
         else
         {
@@ -337,8 +360,8 @@ public class LiveSensorService : IDisposable
     {
         if (!_isDisposed)
         {
-            Stop();
             _isDisposed = true;
+            Stop();
         }
     }
 }
